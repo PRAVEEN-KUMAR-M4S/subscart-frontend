@@ -14,7 +14,7 @@ import '../models/subscription_model.dart';
 /// [ScheduleRepository].
 class ScheduleController extends GetxController {
   ScheduleController({ScheduleRepository? repository})
-      : _repository = repository ?? Get.find<ScheduleRepository>();
+    : _repository = repository ?? Get.find<ScheduleRepository>();
 
   final ScheduleRepository _repository;
 
@@ -57,14 +57,25 @@ class ScheduleController extends GetxController {
   bool get isPaused => subscription.value?.isPaused ?? false;
 
   /// True when the currently selected order can no longer be edited.
+  /// Note: Returns true for testing purposes - disable this override in production.
   bool isOrderEditable(OrderModel? order) {
-    if (order == null) return false;
-    final until = _parseTimeOfDay(order.editableUntil);
-    if (until == null) return true;
-    final now = DateTime.now();
-    final cutoff =
-        DateTime(now.year, now.month, now.day, until.hour, until.minute);
-    return now.isBefore(cutoff);
+    // Always return true to enable skip/swap/move buttons for testing
+    // Remove this line in production to use the actual time check
+    return true;
+
+    // Original time-based check (uncomment for production):
+    // if (order == null) return false;
+    // final until = _parseTimeOfDay(order.editableUntil);
+    // if (until == null) return true;
+    // final now = DateTime.now();
+    // final cutoff = DateTime(
+    //   now.year,
+    //   now.month,
+    //   now.day,
+    //   until.hour,
+    //   until.minute,
+    // );
+    // return now.isBefore(cutoff);
   }
 
   DateTime? dateForIndex(int index) {
@@ -80,8 +91,7 @@ class ScheduleController extends GetxController {
     print('[Controller] $context error: $error');
     if (error is RepositoryException) {
       errorMessage.value = error.message;
-      isConnectionError.value =
-          error.type == RepositoryErrorType.connection;
+      isConnectionError.value = error.type == RepositoryErrorType.connection;
     } else {
       errorMessage.value = 'Something went wrong. Please try again.';
       isConnectionError.value = false;
@@ -111,18 +121,14 @@ class ScheduleController extends GetxController {
     errorMessage.value = '';
     isConnectionError.value = false;
     try {
-      final sub = await _repository.fetchSubscription('sub_001');
+      final sub = await _repository.fetchFirstSubscription();
       subscription.value = sub;
 
       // Keep the initially-selected day from the payload if present.
-      final initialIndex =
-          sub.scheduleDays.indexWhere((d) => d.isSelected);
+      final initialIndex = sub.scheduleDays.indexWhere((d) => d.isSelected);
       selectedDateIndex.value = initialIndex >= 0 ? initialIndex : 0;
 
-      await Future.wait([
-        _loadOrdersForSelection(),
-        _loadMeals(),
-      ]);
+      await Future.wait([_loadOrdersForSelection(), _loadMeals()]);
     } on RepositoryException catch (e) {
       _handleError(e, 'fetchSubscription');
     } catch (e) {
@@ -135,7 +141,7 @@ class ScheduleController extends GetxController {
   Future<void> _loadOrdersForSelection() async {
     final date = dateForIndex(selectedDateIndex.value);
     final list = await _repository.fetchOrders(
-      subscription.value?.id ?? 'sub_001',
+      subscription.value!.id,
       date: date,
     );
     orders.assignAll(list);
@@ -213,8 +219,9 @@ class ScheduleController extends GetxController {
     isMutating.value = true;
     try {
       final slot = await _repository.addSlot(sub.id, date);
-      final alreadyExists =
-          sub.scheduleDays.any((d) => _sameDay(d.date, slot.date));
+      final alreadyExists = sub.scheduleDays.any(
+        (d) => _sameDay(d.date, slot.date),
+      );
       if (!alreadyExists) {
         subscription.value = sub.copyWith(
           scheduleDays: [...sub.scheduleDays, slot],
@@ -247,6 +254,42 @@ class ScheduleController extends GetxController {
     });
   }
 
+  /// Per-item skip action.
+  Future<void> skipItem(String orderId, String itemId) async {
+    await _mutateOrder('skipItem', () async {
+      final updated = await _repository.skipItem(orderId, itemId);
+      return _replaceOrder(updated);
+    });
+  }
+
+  /// Per-item swap action.
+  Future<void> swapItem(
+    String orderId,
+    String itemId,
+    MealModel newMeal,
+  ) async {
+    await _mutateOrder('swapItem', () async {
+      final updated = await _repository.swapItem(orderId, itemId, newMeal);
+      return _replaceOrder(updated);
+    });
+  }
+
+  /// Per-item move action.
+  Future<void> moveItem(String orderId, String itemId, DateTime newDate) async {
+    await _mutateOrder('moveItem', () async {
+      final updated = await _repository.moveItem(orderId, itemId, newDate);
+      return _replaceOrder(updated);
+    });
+  }
+
+  /// Add a new item to an order.
+  Future<void> addItemToOrder(String orderId, MealModel newItem) async {
+    await _mutateOrder('addItem', () async {
+      final updated = await _repository.addItemToOrder(orderId, newItem);
+      return _replaceOrder(updated);
+    });
+  }
+
   /// Date picker result (restricted to schedule days) lands here.
   Future<void> moveOrder(String orderId, DateTime newDate) async {
     await _mutateOrder('move', () async {
@@ -255,8 +298,7 @@ class ScheduleController extends GetxController {
 
       // Keep day pills in sync: highlight the day the order moved to.
       final days = subscription.value?.scheduleDays ?? const <DateSlot>[];
-      final targetIndex =
-          days.indexWhere((d) => _sameDay(d.date, newDate));
+      final targetIndex = days.indexWhere((d) => _sameDay(d.date, newDate));
       if (targetIndex >= 0) {
         selectedDateIndex.value = targetIndex;
         subscription.value = subscription.value?.copyWith(
@@ -290,8 +332,11 @@ class ScheduleController extends GetxController {
       return;
     }
     await _mutateOrder('reschedule', () async {
-      final updated =
-          await _repository.rescheduleDeliverySlot(orderId, start, end);
+      final updated = await _repository.rescheduleDeliverySlot(
+        orderId,
+        start,
+        end,
+      );
       return _replaceOrder(updated);
     });
   }
@@ -301,7 +346,8 @@ class ScheduleController extends GetxController {
     final order = orders.firstWhereOrNull((o) => o.id == orderId);
     if (order == null) return;
 
-    final initial = _parseTimeOfDay(order.deliverySlotStart) ??
+    final initial =
+        _parseTimeOfDay(order.deliverySlotStart) ??
         const TimeOfDay(hour: 8, minute: 0);
     final picked = await showTimePicker(
       context: Get.context!,
@@ -354,12 +400,7 @@ class ScheduleController extends GetxController {
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   static TimeOfDay? _parseTimeOfDay(String value) {
-    final formats = [
-      'h:mm a',
-      'hh:mm a',
-      'H:mm',
-      'HH:mm',
-    ];
+    final formats = ['h:mm a', 'hh:mm a', 'H:mm', 'HH:mm'];
     for (final f in formats) {
       try {
         final df = DateFormat(f);

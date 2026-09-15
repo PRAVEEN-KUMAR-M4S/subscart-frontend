@@ -13,7 +13,7 @@ import '../providers/schedule_api_provider.dart';
 /// [RepositoryException] with clear, user-friendly messages.
 class ScheduleRepository extends GetxService {
   ScheduleRepository({ScheduleApiProvider? provider})
-      : _provider = provider ?? ScheduleApiProvider();
+    : _provider = provider ?? ScheduleApiProvider();
 
   final ScheduleApiProvider _provider;
 
@@ -119,6 +119,35 @@ class ScheduleRepository extends GetxService {
   // ------------------------------------------------------------------
   // Subscription
   // ------------------------------------------------------------------
+
+  /// GET /subscriptions — list all subscriptions, return the first one.
+  Future<SubscriptionModel> fetchFirstSubscription() async {
+    print('[Repo] fetchFirstSubscription()');
+    try {
+      final res = await _provider.fetchSubscriptions();
+      final data = _extractData(res);
+      List<dynamic> list;
+      if (data is List) {
+        list = data;
+      } else if (data is Map && data.containsKey('subscriptions')) {
+        list = data['subscriptions'] as List<dynamic>? ?? [];
+      } else {
+        list = [];
+      }
+      print('[Repo] found ${list.length} subscriptions');
+      if (list.isEmpty) {
+        throw RepositoryException(
+          'No subscriptions found. Please create one first.',
+          type: RepositoryErrorType.notFound,
+        );
+      }
+      return SubscriptionModel.fromJson(list.first as Map<String, dynamic>);
+    } on RepositoryException {
+      rethrow;
+    } on DioException catch (e) {
+      throw _wrapError(e, 'fetchFirstSubscription');
+    }
+  }
 
   /// GET /subscriptions/:id
   Future<SubscriptionModel> fetchSubscription(String subscriptionId) async {
@@ -284,6 +313,102 @@ class ScheduleRepository extends GetxService {
   }
 
   // ------------------------------------------------------------------
+  // Per-item mutations
+  // ------------------------------------------------------------------
+
+  /// PATCH /orders/:orderId/items/:itemId/skip
+  Future<OrderModel> skipItem(String orderId, String itemId) async {
+    print('[Repo] skipItem($orderId, item: $itemId)');
+    try {
+      final res = await _provider.skipItem(orderId, itemId);
+      final data = _extractData(res);
+      if (data is Map) {
+        return OrderModel.fromJson(Map<String, dynamic>.from(data));
+      }
+      throw RepositoryException(
+        'Unexpected server response.',
+        type: RepositoryErrorType.server,
+      );
+    } on DioException catch (e) {
+      throw _wrapError(e, 'skipItem');
+    }
+  }
+
+  /// PATCH /orders/:orderId/items/:itemId/swap
+  Future<OrderModel> swapItem(
+    String orderId,
+    String itemId,
+    MealModel newMeal,
+  ) async {
+    print('[Repo] swapItem($orderId, item: $itemId, meal: ${newMeal.name})');
+    try {
+      final res = await _provider.swapItem(
+        orderId,
+        itemId,
+        name: newMeal.name,
+        image: newMeal.imageUrl,
+        calories: newMeal.calories,
+        fat: newMeal.fatGrams,
+        protein: newMeal.proteinGrams,
+        carbs: newMeal.carbGrams,
+      );
+      final data = _extractData(res);
+      if (data is Map) {
+        return OrderModel.fromJson(Map<String, dynamic>.from(data));
+      }
+      throw RepositoryException(
+        'Unexpected server response.',
+        type: RepositoryErrorType.server,
+      );
+    } on DioException catch (e) {
+      throw _wrapError(e, 'swapItem');
+    }
+  }
+
+  /// PATCH /orders/:orderId/items/:itemId/move
+  Future<OrderModel> moveItem(
+    String orderId,
+    String itemId,
+    DateTime newDate,
+  ) async {
+    print('[Repo] moveItem($orderId, item: $itemId, to: $newDate)');
+    try {
+      final res = await _provider.moveItem(orderId, itemId, newDate);
+      final data = _extractData(res);
+      if (data is Map) {
+        return OrderModel.fromJson(Map<String, dynamic>.from(data));
+      }
+      throw RepositoryException(
+        'Unexpected server response.',
+        type: RepositoryErrorType.server,
+      );
+    } on DioException catch (e) {
+      throw _wrapError(e, 'moveItem');
+    }
+  }
+
+  /// POST /orders/:orderId/items - Add a new item to an order
+  Future<OrderModel> addItemToOrder(
+    String orderId,
+    MealModel newItem,
+  ) async {
+    print('[Repo] addItemToOrder($orderId, item: ${newItem.name})');
+    try {
+      final res = await _provider.addItemToOrder(orderId, newItem.toJson());
+      final data = _extractData(res);
+      if (data is Map) {
+        return OrderModel.fromJson(Map<String, dynamic>.from(data));
+      }
+      throw RepositoryException(
+        'Unexpected server response.',
+        type: RepositoryErrorType.server,
+      );
+    } on DioException catch (e) {
+      throw _wrapError(e, 'addItemToOrder');
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Meals
   // ------------------------------------------------------------------
 
@@ -322,13 +447,7 @@ class ScheduleRepository extends GetxService {
 // Error types for differentiated UI handling
 // ------------------------------------------------------------------
 
-enum RepositoryErrorType {
-  connection,
-  validation,
-  notFound,
-  server,
-  unknown,
-}
+enum RepositoryErrorType { connection, validation, notFound, server, unknown }
 
 class RepositoryException implements Exception {
   final String message;

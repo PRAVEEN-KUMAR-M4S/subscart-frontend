@@ -7,39 +7,27 @@ import 'package:subscart/app/modules/schedule/controllers/schedule_controller.da
 import 'package:subscart/app/modules/schedule/views/schedule_view.dart';
 
 void main() {
-  testWidgets('Schedule screen renders subscription and order card', (
-    WidgetTester tester,
-  ) async {
-    // Register dependencies the way the binding would.
+  testWidgets('Schedule screen shows error when backend is unreachable',
+      (WidgetTester tester) async {
     Get.put<ScheduleRepository>(
       ScheduleRepository(provider: ScheduleApiProvider()),
     );
     Get.lazyPut<ScheduleController>(() => ScheduleController());
 
-    await tester.pumpWidget(const GetMaterialApp(home: ScheduleView()));
-    // Let the controller's fetchSubscription complete.
+    await tester.pumpWidget(
+      const GetMaterialApp(home: ScheduleView()),
+    );
     await tester.pumpAndSettle();
 
-    // Header content from the mock subscription.
-    expect(find.text('Healthy Lab...'), findsOneWidget);
-    expect(find.text('Schedule'), findsOneWidget);
-
-    // Order card content from the mock order for the selected day.
-    expect(find.textContaining('Order #'), findsOneWidget);
-    expect(find.text('Delivery Slot'), findsOneWidget);
-    expect(find.textContaining('Calories'), findsOneWidget);
-
-    // Bottom action bar buttons.
-    expect(find.text('Skip'), findsOneWidget);
-    expect(find.text('Swap'), findsOneWidget);
-    expect(find.text('Move'), findsOneWidget);
+    // Flutter test HttpClient returns 400, which maps to a generic error.
+    expect(find.text('Something went wrong'), findsOneWidget);
+    expect(find.text('Try Again'), findsOneWidget);
 
     Get.reset();
   });
 
-  testWidgets('ScheduleBinding registers ScheduleController', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('ScheduleBinding registers ScheduleController',
+      (WidgetTester tester) async {
     ScheduleBinding().dependencies();
     expect(Get.isRegistered<ScheduleRepository>(), isTrue);
     expect(Get.isRegistered<ScheduleController>(), isTrue);

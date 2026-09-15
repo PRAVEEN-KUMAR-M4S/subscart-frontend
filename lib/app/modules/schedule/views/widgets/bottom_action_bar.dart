@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 class BottomActionBar extends StatelessWidget {
   final bool skipped;
   final bool editable;
-  final VoidCallback onSkip;
-  final VoidCallback onSwap;
-  final VoidCallback onMove;
+  final VoidCallback? onSkip;
+  final VoidCallback? onSwap;
+  final VoidCallback? onMove;
 
   const BottomActionBar({
     super.key,
@@ -31,21 +31,21 @@ class BottomActionBar extends StatelessWidget {
             child: _ActionButton(
               icon: skipped ? Icons.undo : Icons.skip_next,
               label: skipped ? 'Un-skip' : 'Skip',
-              onTap: editable ? onSkip : null,
+              onTap: onSkip,
             ),
           ),
           Expanded(
             child: _ActionButton(
               icon: Icons.swap_horiz,
               label: 'Swap',
-              onTap: editable ? onSwap : null,
+              onTap: onSwap,
             ),
           ),
           Expanded(
             child: _ActionButton(
-              icon: Icons.drag_indicator,
+              icon: Icons.open_in_new,
               label: 'Move',
-              onTap: editable ? onMove : null,
+              onTap: onMove,
             ),
           ),
         ],

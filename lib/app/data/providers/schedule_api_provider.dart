@@ -18,7 +18,7 @@ class ScheduleApiProvider {
   final Dio _dio;
 
   ScheduleApiProvider({Dio? dio})
-      : _dio =
+    : _dio =
           dio ??
           Dio(
             BaseOptions(
@@ -31,6 +31,11 @@ class ScheduleApiProvider {
               },
             ),
           );
+
+  /// GET /subscriptions — list all subscriptions
+  Future<Response<dynamic>> fetchSubscriptions() async {
+    return _dio.get('/subscriptions');
+  }
 
   /// GET /subscriptions/:id
   Future<Response<dynamic>> fetchSubscription(String subscriptionId) async {
@@ -120,6 +125,64 @@ class ScheduleApiProvider {
     return _dio.patch(
       '/orders/$orderId/reschedule',
       data: {'startTime': start, 'endTime': end},
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Per-item actions
+  // ------------------------------------------------------------------
+
+  /// PATCH /orders/:orderId/items/:itemId/skip
+  Future<Response<dynamic>> skipItem(String orderId, String itemId) async {
+    return _dio.patch('/orders/$orderId/items/$itemId/skip');
+  }
+
+  /// PATCH /orders/:orderId/items/:itemId/swap
+  Future<Response<dynamic>> swapItem(
+    String orderId,
+    String itemId, {
+    required String name,
+    String? image,
+    int? calories,
+    int? fat,
+    int? protein,
+    int? carbs,
+  }) async {
+    return _dio.patch(
+      '/orders/$orderId/items/$itemId/swap',
+      data: {
+        'newMeal': {
+          'name': name,
+          if (image != null) 'image': image,
+          if (calories != null) 'calories': calories,
+          if (fat != null) 'fat': fat,
+          if (protein != null) 'protein': protein,
+          if (carbs != null) 'carbs': carbs,
+        },
+      },
+    );
+  }
+
+  /// PATCH /orders/:orderId/items/:itemId/move
+  Future<Response<dynamic>> moveItem(
+    String orderId,
+    String itemId,
+    DateTime newDate,
+  ) async {
+    return _dio.patch(
+      '/orders/$orderId/items/$itemId/move',
+      data: {'newDate': newDate.toIso8601String()},
+    );
+  }
+
+  /// POST /orders/:orderId/items - Add a new item to an order
+  Future<Response<dynamic>> addItemToOrder(
+    String orderId,
+    Map<String, dynamic> itemData,
+  ) async {
+    return _dio.post(
+      '/orders/$orderId/items',
+      data: itemData,
     );
   }
 
