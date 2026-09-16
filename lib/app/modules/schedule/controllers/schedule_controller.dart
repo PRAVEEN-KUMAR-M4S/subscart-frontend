@@ -27,8 +27,8 @@ class ScheduleController extends GetxController {
   final RxInt selectedDateIndex = 0.obs;
   final RxBool isLoading = true.obs;
 
-  /// Raw GET /meals result used by the swap bottom sheet.
-  final RxList<MealModel> meals = <MealModel>[].obs;
+  /// Raw GET /items result used by the swap/add bottom sheets.
+  final RxList<MealModel> availableItems = <MealModel>[].obs;
 
   /// Set when a repository call fails; the view shows a SnackBar.
   final RxString errorMessage = ''.obs;
@@ -115,7 +115,7 @@ class ScheduleController extends GetxController {
   // Data loading
   // ------------------------------------------------------------------
 
-  /// GET /subscriptions/:id (+ orders for the selected day, + GET /meals).
+  /// GET /subscriptions/:id (+ orders for the selected day, + GET /items).
   Future<void> fetchSubscription() async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -128,7 +128,7 @@ class ScheduleController extends GetxController {
       final initialIndex = sub.scheduleDays.indexWhere((d) => d.isSelected);
       selectedDateIndex.value = initialIndex >= 0 ? initialIndex : 0;
 
-      await Future.wait([_loadOrdersForSelection(), _loadMeals()]);
+      await Future.wait([_loadOrdersForSelection(), _loadAvailableItems()]);
     } on RepositoryException catch (e) {
       _handleError(e, 'fetchSubscription');
     } catch (e) {
@@ -148,13 +148,13 @@ class ScheduleController extends GetxController {
     selectedOrder.value = list.isNotEmpty ? list.first : null;
   }
 
-  Future<void> _loadMeals() async {
-    if (meals.isNotEmpty) return;
+  Future<void> _loadAvailableItems() async {
+    if (availableItems.isNotEmpty) return;
     try {
-      meals.assignAll(await _repository.fetchMeals());
+      availableItems.assignAll(await _repository.fetchItems());
     } on RepositoryException catch (e) {
-      // Meals are non-critical; log but don't block the UI
-      print('[Controller] meals load failed (non-critical): ${e.message}');
+      // Items are non-critical; log but don't block the UI
+      print('[Controller] items load failed (non-critical): ${e.message}');
     }
   }
 
@@ -421,8 +421,11 @@ class ScheduleController extends GetxController {
       final parsedTime = _parseTimeOfDay(startTime);
       if (parsedTime != null) {
         final slotDateTime = DateTime(
-          now.year, now.month, now.day,
-          parsedTime.hour, parsedTime.minute,
+          now.year,
+          now.month,
+          now.day,
+          parsedTime.hour,
+          parsedTime.minute,
         );
         if (!slotDateTime.isAfter(now)) {
           Get.snackbar(
@@ -552,14 +555,19 @@ class ScheduleController extends GetxController {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final orderDate = DateTime(
-        order.date.year, order.date.month, order.date.day,
+        order.date.year,
+        order.date.month,
+        order.date.day,
       );
       if (orderDate.isAtSameMomentAs(today)) {
         final parsedTime = _parseTimeOfDay(start);
         if (parsedTime != null) {
           final slotDateTime = DateTime(
-            now.year, now.month, now.day,
-            parsedTime.hour, parsedTime.minute,
+            now.year,
+            now.month,
+            now.day,
+            parsedTime.hour,
+            parsedTime.minute,
           );
           if (!slotDateTime.isAfter(now)) {
             Get.snackbar(
@@ -739,7 +747,9 @@ class ScheduleController extends GetxController {
       // ---- Confirmation dialog — fire action directly in onConfirm ----
       Get.dialog(
         Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             child: Column(
@@ -772,16 +782,16 @@ class ScheduleController extends GetxController {
                 Text(
                   'Move Order ${order.orderNumber} to',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
                 const SizedBox(height: 10),
                 // Date/time info card
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
@@ -792,7 +802,11 @@ class ScheduleController extends GetxController {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             DateFormat('EEEE, MMM d').format(selectedDate),
@@ -808,7 +822,11 @@ class ScheduleController extends GetxController {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             '$startTime – $endTime',

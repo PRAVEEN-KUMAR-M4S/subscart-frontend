@@ -254,10 +254,7 @@ class ScheduleRepository extends GetxService {
         orderId,
         name: newMeal.name,
         image: newMeal.imageUrl,
-        calories: newMeal.calories,
-        fat: newMeal.fatGrams,
-        protein: newMeal.proteinGrams,
-        carbs: newMeal.carbGrams,
+        description: newMeal.description,
       );
       final data = _extractData(res);
       if (data is Map) {
@@ -360,10 +357,7 @@ class ScheduleRepository extends GetxService {
         itemId,
         name: newMeal.name,
         image: newMeal.imageUrl,
-        calories: newMeal.calories,
-        fat: newMeal.fatGrams,
-        protein: newMeal.proteinGrams,
-        carbs: newMeal.carbGrams,
+        description: newMeal.description,
       );
       final data = _extractData(res);
       if (data is Map) {
@@ -433,29 +427,29 @@ class ScheduleRepository extends GetxService {
   }
 
   // ------------------------------------------------------------------
-  // Meals
+  // Items
   // ------------------------------------------------------------------
 
-  /// GET /meals
-  Future<List<MealModel>> fetchMeals() async {
-    print('[Repo] fetchMeals()');
+  /// GET /items
+  Future<List<MealModel>> fetchItems() async {
+    print('[Repo] fetchItems()');
     try {
-      final res = await _provider.fetchMeals();
+      final res = await _provider.fetchItems();
       final data = _extractData(res);
       List<dynamic> list;
       if (data is List) {
         list = data;
-      } else if (data is Map && data.containsKey('meals')) {
-        list = data['meals'] as List<dynamic>? ?? [];
+      } else if (data is Map && data.containsKey('items')) {
+        list = data['items'] as List<dynamic>? ?? [];
       } else {
         list = [];
       }
-      print('[Repo] parsed ${list.length} meals');
+      print('[Repo] parsed ${list.length} items');
       return list
           .map((e) => MealModel.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
-      throw _wrapError(e, 'fetchMeals');
+      throw _wrapError(e, 'fetchItems');
     }
   }
 

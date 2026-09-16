@@ -10,38 +10,29 @@ class ScheduleHeader extends GetView<ScheduleController> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // Back arrow
         IconButton(
           onPressed: () => Get.back<void>(),
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: scheme.onSurface),
         ),
         const SizedBox(width: 4),
-        // Plan thumbnail
+        // Plan thumbnail — constant, does NOT change with the selected date
         Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: scheme.onSurface.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Obx(() {
-            final order = controller.selectedOrder.value;
-            final url = order?.meal.imageUrl ?? '';
-            return url.isEmpty
-                ? const Icon(Icons.restaurant_menu, color: Colors.black54)
-                : Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.restaurant_menu,
-                      color: Colors.black54,
-                    ),
-                  );
-          }),
+          child: Icon(
+            Icons.restaurant_menu,
+            size: 22,
+            color: scheme.onSurface.withValues(alpha: 0.7),
+          ),
         ),
         const SizedBox(width: 12),
         // Plan title + subtitle
@@ -56,10 +47,10 @@ class ScheduleHeader extends GetView<ScheduleController> {
                   sub?.planName ?? 'Healthy Lab...',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                    color: scheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -67,7 +58,10 @@ class ScheduleHeader extends GetView<ScheduleController> {
                   sub?.subtitle ?? '5 Meals Weekly Plan · 6-week',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurface.withValues(alpha: 0.55),
+                  ),
                 ),
               ],
             );

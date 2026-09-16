@@ -44,7 +44,8 @@ class ScheduleView extends GetView<ScheduleController> {
 
           // ---- Normal content ----
           return RefreshIndicator(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.primary,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             onRefresh: controller.fetchSubscription,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -85,17 +86,20 @@ class ScheduleView extends GetView<ScheduleController> {
                             children: [
                               Text(
                                 '${list.length} deliveries on this date',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black54,
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.55),
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(
+                              Icon(
                                 Icons.info_outline,
                                 size: 14,
-                                color: Colors.black38,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.35),
                               ),
                             ],
                           ),
@@ -160,79 +164,49 @@ class _ConnectionErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Icon
             Container(
-              width: 72,
-              height: 72,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFFFEE8E8),
+                color: Theme.of(
+                  context,
+                ).colorScheme.error.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.wifi_off_rounded,
-                size: 36,
-                color: Color(0xFFD32F2F),
+                size: 30,
+                color: Theme.of(context).colorScheme.error,
               ),
             ),
             const SizedBox(height: 20),
 
             // Title
-            const Text(
-              'Cannot reach server',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Message
             Text(
-              message.isEmpty
-                  ? 'Make sure your backend is running and your device '
-                        'is on the same Wi-Fi network.'
-                  : message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.black54,
-                height: 1.5,
+              "You're offline",
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            // Checklist
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Checklist:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  _CheckItem('Backend is running (npm run dev)'),
-                  _CheckItem('Device is on the same Wi-Fi as your PC'),
-                  _CheckItem(
-                    'IP address matches in schedule_api_provider.dart',
-                  ),
-                ],
+            // Friendly message
+            Text(
+              'Check your internet connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+                height: 1.5,
               ),
             ),
             const SizedBox(height: 24),
@@ -240,54 +214,25 @@ class _ConnectionErrorView extends StatelessWidget {
             // Retry button
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 46,
               child: ElevatedButton(
                 onPressed: onRetry,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
                 child: const Text(
-                  'Retry',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  'Try Again',
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CheckItem extends StatelessWidget {
-  final String text;
-  const _CheckItem(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.check_circle_outline,
-            size: 14,
-            color: Colors.black45,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -307,35 +252,37 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.black26),
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.25),
+            ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Something went wrong',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              height: 44,
+              height: 46,
               child: OutlinedButton(
                 onPressed: onRetry,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black,
-                  side: const BorderSide(color: Colors.black),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

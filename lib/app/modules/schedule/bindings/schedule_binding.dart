@@ -13,9 +13,6 @@ class ScheduleBinding extends Bindings {
     }
 
     // Controller is scoped to the schedule screen.
-    Get.lazyPut<ScheduleController>(
-      () => ScheduleController(),
-      fenix: true,
-    );
+    Get.lazyPut<ScheduleController>(() => ScheduleController(), fenix: true);
   }
 }

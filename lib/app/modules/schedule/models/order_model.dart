@@ -11,19 +11,17 @@ OrderStatus orderStatusFromName(String? name) => OrderStatus.values.firstWhere(
 class OrderModel {
   final String id;
   final String orderNumber;
-  final String deliveryTag; // e.g. "Delivery"
+  final String deliveryTag;
   final String address;
-  final String deliveryTime; // e.g. "8:17 am - 9:17..."
-  final String deliverySlotStart; // e.g. "8:17 AM"
-  final String deliverySlotEnd; // e.g. "9:17 AM"
-  final String editableUntil; // e.g. "7:17 AM"
+  final String deliveryTime;
+  final String deliverySlotStart;
+  final String deliverySlotEnd;
+  final String editableUntil;
   final bool deliverySlotEnabled;
-  final MealModel meal; // Primary meal (for backward compatibility)
-  final List<MealModel> items; // Multiple items in this order
+  final MealModel meal;
+  final List<MealModel> items;
   final OrderStatus status;
   final DateTime date;
-
-  /// Backend _id for each item (used for per-item API calls)
   final List<String> itemBackendIds;
 
   const OrderModel({
@@ -43,36 +41,19 @@ class OrderModel {
     this.itemBackendIds = const [],
   });
 
-  /// Get an item by its index in the items list.
   MealModel? getItemByIndex(int index) {
     if (index < 0 || index >= items.length) return null;
     return items[index];
   }
 
-  /// Get the backend ID for an item at a given index.
   String? getItemBackendId(int index) {
     if (index < 0 || index >= itemBackendIds.length) return null;
     return itemBackendIds[index];
   }
 
-  /// True once the current time has passed the edit cut-off.
   bool isEditLocked(DateTime now) => now.isAfter(date);
 
-  /// Get total calories from all items (considering quantity).
-  int get totalCalories =>
-      items.fold(0, (sum, item) => sum + (item.calories * item.quantity));
-
-  /// Get total protein from all items (considering quantity).
-  int get totalProtein =>
-      items.fold(0, (sum, item) => sum + (item.proteinGrams * item.quantity));
-
-  /// Get total carbs from all items (considering quantity).
-  int get totalCarbs =>
-      items.fold(0, (sum, item) => sum + (item.carbGrams * item.quantity));
-
-  /// Get total fat from all items (considering quantity).
-  int get totalFat =>
-      items.fold(0, (sum, item) => sum + (item.fatGrams * item.quantity));
+  int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 
   OrderModel copyWith({
     String? id,
@@ -122,17 +103,9 @@ class OrderModel {
     'date': date.toIso8601String(),
   };
 
-  /// Handles both Flutter-expected keys and actual backend format:
-  ///   Backend: _id, address, deliverySlot: {startTime, endTime, editableUntil},
-  ///            meal: {name, image, calories, fat, protein, carbs}, status
-  ///   Flutter: id, orderNumber, deliveryTag, address, deliveryTime,
-  ///            deliverySlotStart, deliverySlotEnd, editableUntil,
-  ///            deliverySlotEnabled, meal, items, status, date
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    // --- id ---
     final id = (json['id'] ?? json['_id'])?.toString() ?? '';
 
-    // --- delivery slot (nested on backend, flat on Flutter) ---
     final slot = json['deliverySlot'] as Map<String, dynamic>?;
     final slotStart =
         (json['deliverySlotStart'] ?? slot?['startTime'])?.toString() ?? '';
@@ -144,7 +117,6 @@ class OrderModel {
         ? '${_formatTime(slotStart)} - ${_formatTime(slotEnd)}'
         : json['deliveryTime']?.toString() ?? '';
 
-    // --- orderNumber / deliveryTag (not on backend) ---
     final orderNumber =
         json['orderNumber']?.toString() ??
         (id.isNotEmpty
@@ -152,27 +124,18 @@ class OrderModel {
             : '');
     final deliveryTag = json['deliveryTag']?.toString() ?? 'Delivery';
 
-    // --- date ---
     final date =
         DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now();
 
-    // --- primary meal (nested on backend) ---
+    // Primary item
     MealModel meal;
     if (json['meal'] is Map<String, dynamic>) {
       meal = MealModel.fromJson(json['meal'] as Map<String, dynamic>);
     } else {
-      meal = const MealModel(
-        id: '',
-        name: '',
-        imageUrl: '',
-        calories: 0,
-        fatGrams: 0,
-        proteinGrams: 0,
-        carbGrams: 0,
-      );
+      meal = const MealModel(id: '', name: '', imageUrl: '');
     }
 
-    // --- multiple items (nested on backend) ---
+    // Multiple items
     List<MealModel> items = [];
     List<String> itemIds = [];
     if (json['items'] is List) {
@@ -180,13 +143,11 @@ class OrderModel {
       for (final itemJson in itemsList) {
         if (itemJson is Map<String, dynamic>) {
           items.add(MealModel.fromJson(itemJson));
-          // Capture the backend _id for each item
           final itemId = (itemJson['_id'] ?? itemJson['id'])?.toString() ?? '';
           itemIds.add(itemId);
         }
       }
     }
-    // If no items array but we have a primary meal, use it as the only item
     if (items.isEmpty && meal.name.isNotEmpty) {
       items = [meal];
       itemIds = [''];
@@ -210,7 +171,6 @@ class OrderModel {
     );
   }
 
-  /// Format time strings like "8:17 am" to "8:17 AM" for consistent display.
   static String _formatTime(String time) {
     final lower = time.toLowerCase().trim();
     if (lower.endsWith(' am') || lower.endsWith(' pm')) {

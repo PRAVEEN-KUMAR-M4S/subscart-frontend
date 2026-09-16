@@ -100,15 +100,12 @@ class ScheduleApiProvider {
   }
 
   /// PATCH /orders/:id/swap
-  /// Backend expects [newMeal] as a full meal object.
+  /// Backend expects [newMeal] as a full item object.
   Future<Response<dynamic>> swapOrder(
     String orderId, {
     required String name,
     String? image,
-    int? calories,
-    int? fat,
-    int? protein,
-    int? carbs,
+    String? description,
   }) async {
     return _dio.patch(
       '/orders/$orderId/swap',
@@ -116,10 +113,7 @@ class ScheduleApiProvider {
         'newMeal': {
           'name': name,
           if (image != null) 'image': image,
-          if (calories != null) 'calories': calories,
-          if (fat != null) 'fat': fat,
-          if (protein != null) 'protein': protein,
-          if (carbs != null) 'carbs': carbs,
+          if (description != null) 'description': description,
         },
       },
     );
@@ -166,10 +160,7 @@ class ScheduleApiProvider {
     String itemId, {
     required String name,
     String? image,
-    int? calories,
-    int? fat,
-    int? protein,
-    int? carbs,
+    String? description,
   }) async {
     return _dio.patch(
       '/orders/$orderId/items/$itemId/swap',
@@ -177,10 +168,7 @@ class ScheduleApiProvider {
         'newMeal': {
           'name': name,
           if (image != null) 'image': image,
-          if (calories != null) 'calories': calories,
-          if (fat != null) 'fat': fat,
-          if (protein != null) 'protein': protein,
-          if (carbs != null) 'carbs': carbs,
+          if (description != null) 'description': description,
         },
       },
     );
@@ -207,9 +195,9 @@ class ScheduleApiProvider {
     return _dio.post('/orders/$orderId/items', data: itemData);
   }
 
-  /// GET /meals
-  Future<Response<dynamic>> fetchMeals() async {
-    return _dio.get('/meals');
+  /// GET /items
+  Future<Response<dynamic>> fetchItems() async {
+    return _dio.get('/items');
   }
 
   /// Simple connectivity check — GET / (health check endpoint).

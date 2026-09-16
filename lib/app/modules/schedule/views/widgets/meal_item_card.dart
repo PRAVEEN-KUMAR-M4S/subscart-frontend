@@ -131,12 +131,15 @@ class MealItemCard extends GetView<ScheduleController> {
     final currentMeal = meal.swappedMeal ?? meal;
     showModalBottomSheet<void>(
       context: Get.context!,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(Get.context!).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) =>
-          _SwapItemSheet(order: order, currentMeal: currentMeal, itemId: itemId),
+      builder: (_) => _SwapItemSheet(
+        order: order,
+        currentMeal: currentMeal,
+        itemId: itemId,
+      ),
     );
   }
 
@@ -160,9 +163,8 @@ class MealItemCard extends GetView<ScheduleController> {
       initialDate: initialDate,
       firstDate: first,
       lastDate: last,
-      selectableDayPredicate: (d) => days.any(
-        (slot) => DateUtils.isSameDay(slot.date, d),
-      ),
+      selectableDayPredicate: (d) =>
+          days.any((slot) => DateUtils.isSameDay(slot.date, d)),
       helpText: 'Move to a scheduled day',
     );
     if (picked == null) return;
@@ -224,7 +226,7 @@ class MealItemCard extends GetView<ScheduleController> {
       if (!context.mounted) return;
       final chosen = await showModalBottomSheet<_TargetOrderPick>(
         context: context,
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -247,6 +249,7 @@ class MealItemCard extends GetView<ScheduleController> {
   Widget build(BuildContext context) {
     final order = controller.selectedOrder.value;
     final skipped = meal.isSkipped;
+    final scheme = Theme.of(context).colorScheme;
     // Allow actions on swapped items too (except skip which removes the item)
     // Only skip is disabled for skipped items, move is disabled for moved items
     final canSkip = _isEditable && !skipped;
@@ -261,130 +264,138 @@ class MealItemCard extends GetView<ScheduleController> {
         offset: skipped ? const Offset(0, -0.1) : Offset.zero,
         child: IgnorePointer(
           ignoring: skipped,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: 64,
-                      height: 64,
-                      child: Image.network(
-                        meal.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: Colors.grey.shade100,
-                          child: const Icon(
-                            Icons.restaurant,
-                            color: Colors.black54,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: Image.network(
+                          meal.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: scheme.onSurface.withValues(alpha: 0.06),
+                            child: Icon(
+                              Icons.restaurant,
+                              color: scheme.onSurface.withValues(alpha: 0.5),
+                            ),
                           ),
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null
+                              ? child
+                              : Container(
+                                  color: scheme.onSurface.withValues(
+                                    alpha: 0.06,
+                                  ),
+                                ),
                         ),
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null
-                            ? child
-                            : Container(color: Colors.grey.shade100),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          meal.name,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: skipped
-                                ? Colors.grey.shade400
-                                : meal.isMoved
-                                ? Colors.blue.shade600
-                                : Colors.black,
-                            decoration: skipped
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${meal.calories} Calories, fat ${meal.fatGrams}g, '
-                          'protein ${meal.proteinGrams}g and carbohydrates ${meal.carbGrams}g',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.4,
-                            color: skipped
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600,
-                          ),
-                        ),
-                        if (meal.isMoved) ...[
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meal.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: skipped
+                                  ? scheme.onSurface.withValues(alpha: 0.35)
+                                  : meal.isMoved
+                                  ? Colors.blue.shade300
+                                  : scheme.onSurface,
+                              decoration: skipped
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade100,
-                              borderRadius: BorderRadius.circular(8),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            meal.description,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.4,
+                              color: skipped
+                                  ? scheme.onSurface.withValues(alpha: 0.35)
+                                  : scheme.onSurface.withValues(alpha: 0.55),
                             ),
-                            child: Text(
-                              'Moved',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue.shade600,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (meal.isMoved) ...[
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Moved',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade600,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (skipped)
-                    const Icon(
-                      Icons.check_circle,
-                      color: Color(0xFF27A768),
-                      size: 20,
-                    ),
-                ],
-              ),
-              if (!skipped) ...[
-                const SizedBox(height: 12),
-                // --- Bottom action bar
-                BottomActionBar(
-                  skipped: skipped,
-                  editable: _isEditable && !skipped,
-                  onSkip: canSkip
-                      ? () {
-                          if (order != null) {
-                            _confirmSkip(order);
-                          }
-                        }
-                      : null,
-                  onSwap: canSwap
-                      ? () {
-                          if (order != null) {
-                            _openSwapSheet(order);
-                          }
-                        }
-                      : null,
-                  onMove: canMove
-                      ? () {
-                          if (order != null) {
-                            _pickMoveDate(order);
-                          }
-                        }
-                      : null,
+                    if (skipped)
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF27A768),
+                        size: 20,
+                      ),
+                  ],
                 ),
+                if (!skipped) ...[
+                  const SizedBox(height: 12),
+                  // --- Bottom action bar
+                  BottomActionBar(
+                    skipped: skipped,
+                    editable: _isEditable && !skipped,
+                    onSkip: canSkip
+                        ? () {
+                            if (order != null) {
+                              _confirmSkip(order);
+                            }
+                          }
+                        : null,
+                    onSwap: canSwap
+                        ? () {
+                            if (order != null) {
+                              _openSwapSheet(order);
+                            }
+                          }
+                        : null,
+                    onMove: canMove
+                        ? () {
+                            if (order != null) {
+                              _pickMoveDate(order);
+                            }
+                          }
+                        : null,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -412,6 +423,7 @@ class _TargetOrderPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateHeader = DateFormat.MMMMEEEEd().format(targetDate);
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -422,15 +434,19 @@ class _TargetOrderPickerSheet extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Flexible(
+                Flexible(
                   child: Text(
                     'Choose a delivery',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
                   ),
                 ),
                 IconButton(
                   onPressed: () => Get.back<_TargetOrderPick>(),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: scheme.onSurface),
                 ),
               ],
             ),
@@ -438,7 +454,10 @@ class _TargetOrderPickerSheet extends StatelessWidget {
             Text(
               '$dateHeader has ${candidates.length} deliveries — '
               'add this meal to which one?',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 13,
+                color: scheme.onSurface.withValues(alpha: 0.55),
+              ),
             ),
             const SizedBox(height: 14),
             ...candidates.asMap().entries.map((entry) {
@@ -456,8 +475,10 @@ class _TargetOrderPickerSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: scheme.surface,
+                      border: Border.all(
+                        color: scheme.onSurface.withValues(alpha: 0.1),
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -466,12 +487,12 @@ class _TargetOrderPickerSheet extends StatelessWidget {
                           width: 46,
                           height: 46,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: scheme.onSurface.withValues(alpha: 0.06),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.schedule_outlined,
-                            color: Colors.black87,
+                            color: scheme.onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -482,24 +503,29 @@ class _TargetOrderPickerSheet extends StatelessWidget {
                               Text(
                                 'Delivery ${i + 1} · ${order.deliverySlotStart}'
                                 ' – ${order.deliverySlotEnd}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                  color: scheme.onSurface,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${order.items.length} meal${order.items.length == 1 ? '' : 's'} · ${order.totalCalories} cal',
+                                '${order.items.length} item${order.items.length == 1 ? '' : 's'}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: scheme.onSurface.withValues(
+                                    alpha: 0.55,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Colors.black54),
+                        Icon(
+                          Icons.chevron_right,
+                          color: scheme.onSurface.withValues(alpha: 0.5),
+                        ),
                       ],
                     ),
                   ),
@@ -531,6 +557,7 @@ class _SwapItemSheet extends GetView<ScheduleController> {
       return const Center(child: Text('Item not found'));
     }
 
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -541,44 +568,53 @@ class _SwapItemSheet extends GetView<ScheduleController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Swap this item',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Get.back<void>(),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: scheme.onSurface),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Select a new meal for this item',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 13,
+                color: scheme.onSurface.withValues(alpha: 0.55),
+              ),
             ),
             const SizedBox(height: 12),
             if (currentMeal.name.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: scheme.onSurface.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                    color: scheme.onSurface.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Colors.black54,
+                      color: scheme.onSurface.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Current: ${currentMeal.name}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: scheme.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                     ),
@@ -589,12 +625,12 @@ class _SwapItemSheet extends GetView<ScheduleController> {
             ],
             Flexible(
               child: Obx(() {
-                if (controller.meals.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
+                if (controller.availableItems.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: CircularProgressIndicator(
-                        color: Colors.black,
+                        color: scheme.primary,
                         strokeWidth: 2,
                       ),
                     ),
@@ -602,10 +638,10 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                 }
                 return ListView.separated(
                   shrinkWrap: true,
-                  itemCount: controller.meals.length,
+                  itemCount: controller.availableItems.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
-                    final newMeal = controller.meals[index];
+                    final newMeal = controller.availableItems[index];
                     final isCurrentMeal = newMeal.name == currentMeal.name;
                     return InkWell(
                       borderRadius: BorderRadius.circular(12),
@@ -619,12 +655,12 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isCurrentMeal
-                              ? Colors.grey.shade50
-                              : Colors.white,
+                              ? scheme.onSurface.withValues(alpha: 0.04)
+                              : scheme.surface,
                           border: Border.all(
                             color: isCurrentMeal
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade200,
+                                ? scheme.onSurface.withValues(alpha: 0.2)
+                                : scheme.onSurface.withValues(alpha: 0.1),
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -639,10 +675,14 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                   newMeal.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(
-                                    color: Colors.grey.shade100,
-                                    child: const Icon(
+                                    color: scheme.onSurface.withValues(
+                                      alpha: 0.06,
+                                    ),
+                                    child: Icon(
                                       Icons.restaurant,
-                                      color: Colors.black54,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -662,8 +702,10 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
                                             color: isCurrentMeal
-                                                ? Colors.grey.shade500
-                                                : Colors.black,
+                                                ? scheme.onSurface.withValues(
+                                                    alpha: 0.4,
+                                                  )
+                                                : scheme.onSurface,
                                           ),
                                         ),
                                       ),
@@ -674,16 +716,19 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: Colors.grey.shade200,
+                                            color: scheme.onSurface.withValues(
+                                              alpha: 0.1,
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               4,
                                             ),
                                           ),
-                                          child: const Text(
+                                          child: Text(
                                             'Current',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              color: Colors.black54,
+                                              color: scheme.onSurface
+                                                  .withValues(alpha: 0.55),
                                             ),
                                           ),
                                         ),
@@ -691,20 +736,23 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${newMeal.calories} Calories, fat ${newMeal.fatGrams}g, '
-                                    'protein ${newMeal.proteinGrams}g and carbohydrates ${newMeal.carbGrams}g',
+                                    newMeal.description,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.55,
+                                      ),
                                     ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
                             if (!isCurrentMeal)
-                              const Icon(
+                              Icon(
                                 Icons.swap_horiz,
-                                color: Colors.black54,
+                                color: scheme.onSurface.withValues(alpha: 0.5),
                               ),
                           ],
                         ),

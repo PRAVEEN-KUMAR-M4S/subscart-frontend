@@ -1,4 +1,4 @@
-/// Nutrition/meal info shown inside an order card.
+/// Item/meal info shown inside an order card.
 enum ItemStatus { scheduled, skipped, swapped, moved }
 
 ItemStatus itemStatusFromString(String? name) => ItemStatus.values.firstWhere(
@@ -6,29 +6,22 @@ ItemStatus itemStatusFromString(String? name) => ItemStatus.values.firstWhere(
   orElse: () => ItemStatus.scheduled,
 );
 
-/// Nutrition/meal info shown inside an order card.
+/// Item/meal info shown inside an order card.
 class MealModel {
   final String id;
   final String name;
   final String imageUrl;
-  final int calories;
-  final int fatGrams;
-  final int proteinGrams;
-  final int carbGrams;
-  final int quantity; // Number of servings (backend: quantity)
-  final ItemStatus
-  itemStatus; // Per-item status (scheduled/skipped/swapped/moved)
-  final MealModel? swappedMeal; // If swapped, the replacement meal
-  final DateTime? movedDate; // If moved, the target date
+  final String description;
+  final int quantity;
+  final ItemStatus itemStatus;
+  final MealModel? swappedMeal;
+  final DateTime? movedDate;
 
   const MealModel({
     required this.id,
     required this.name,
     required this.imageUrl,
-    required this.calories,
-    required this.fatGrams,
-    required this.proteinGrams,
-    required this.carbGrams,
+    this.description = '',
     this.quantity = 1,
     this.itemStatus = ItemStatus.scheduled,
     this.swappedMeal,
@@ -40,17 +33,12 @@ class MealModel {
   bool get isMoved => itemStatus == ItemStatus.moved;
   bool get isScheduled => itemStatus == ItemStatus.scheduled;
 
-  /// Handles both Flutter-expected keys and actual backend keys:
-  ///   Backend: _id, image, fat, protein, carbs
-  ///   Flutter: id, imageUrl, fatGrams, proteinGrams, carbGrams
   factory MealModel.fromJson(Map<String, dynamic> json) {
-    // Parse swapped meal if present
     MealModel? swapped;
     if (json['swappedMeal'] is Map<String, dynamic>) {
       swapped = MealModel.fromJson(json['swappedMeal'] as Map<String, dynamic>);
     }
 
-    // Parse moved date if present
     DateTime? moved;
     if (json['movedDate'] != null) {
       moved = DateTime.tryParse(json['movedDate'].toString());
@@ -60,10 +48,7 @@ class MealModel {
       id: (json['_id'] ?? json['id'])?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       imageUrl: (json['imageUrl'] ?? json['image'])?.toString() ?? '',
-      calories: _toInt(json['calories']),
-      fatGrams: _toInt(json['fatGrams'] ?? json['fat']),
-      proteinGrams: _toInt(json['proteinGrams'] ?? json['protein']),
-      carbGrams: _toInt(json['carbGrams'] ?? json['carbs']),
+      description: json['description']?.toString() ?? '',
       quantity: _toInt(json['quantity']),
       itemStatus: itemStatusFromString(json['itemStatus']?.toString()),
       swappedMeal: swapped,
@@ -75,10 +60,7 @@ class MealModel {
     'id': id,
     'name': name,
     'imageUrl': imageUrl,
-    'calories': calories,
-    'fatGrams': fatGrams,
-    'proteinGrams': proteinGrams,
-    'carbGrams': carbGrams,
+    'description': description,
     'quantity': quantity,
     'itemStatus': itemStatus.name,
     if (swappedMeal != null) 'swappedMeal': swappedMeal!.toJson(),

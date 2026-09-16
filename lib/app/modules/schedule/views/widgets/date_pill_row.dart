@@ -48,7 +48,8 @@ class _DatePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : Colors.black;
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.onPrimary : scheme.onSurface;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -62,7 +63,9 @@ class _DatePill extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: selected ? Colors.black : Colors.grey.shade600,
+                color: selected
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 6),
@@ -71,15 +74,17 @@ class _DatePill extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? Colors.black : Colors.white,
+                color: selected ? scheme.primary : scheme.surface,
                 border: Border.all(
-                  color: selected ? Colors.black : Colors.grey.shade300,
+                  color: selected
+                      ? scheme.primary
+                      : scheme.onSurface.withValues(alpha: 0.25),
                   width: 1.2,
                 ),
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
+                          color: scheme.shadow.withValues(alpha: 0.18),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),

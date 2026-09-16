@@ -61,17 +61,19 @@ class SubscriptionActionsRow extends GetView<ScheduleController> {
             Expanded(
               child: Obx(() {
                 final paused = controller.isPaused;
+                final scheme = Theme.of(context).colorScheme;
                 return OutlinedButton.icon(
-                  onPressed:
-                      controller.isMutating.value ? null : () => _confirmPause(context),
+                  onPressed: controller.isMutating.value
+                      ? null
+                      : () => _confirmPause(context),
                   icon: Icon(paused ? Icons.play_arrow : Icons.pause),
                   label: Text(
                     paused ? 'Paused' : 'Pause Subscription',
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black,
-                    side: const BorderSide(color: Colors.black, width: 1.2),
+                    foregroundColor: scheme.onSurface,
+                    side: BorderSide(color: scheme.onSurface, width: 1.2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -81,20 +83,23 @@ class SubscriptionActionsRow extends GetView<ScheduleController> {
               }),
             ),
             const SizedBox(width: 12),
-            // + Add Slots — filled black
+            // + Add Slots — filled
             Expanded(
               child: Obx(() {
+                final scheme = Theme.of(context).colorScheme;
                 return ElevatedButton.icon(
-                  onPressed:
-                      controller.isMutating.value ? null : _pickAddSlotDate,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text(
+                  onPressed: controller.isMutating.value
+                      ? null
+                      : _pickAddSlotDate,
+                  icon: Icon(Icons.add, color: scheme.onPrimary),
+                  label: Text(
                     'Add Slots',
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: scheme.onPrimary),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
+                    backgroundColor: scheme.primary,
+                    foregroundColor: scheme.onPrimary,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -111,12 +116,22 @@ class SubscriptionActionsRow extends GetView<ScheduleController> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.info_outline,
-                size: 14, color: Colors.grey.shade400),
+            Icon(
+              Icons.info_outline,
+              size: 14,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.35),
+            ),
             const SizedBox(width: 4),
             Text(
               'Drag items between slots to reorganize',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.35),
+              ),
             ),
           ],
         ),

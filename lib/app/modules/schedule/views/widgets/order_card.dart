@@ -36,6 +36,8 @@ class OrderCard extends GetView<ScheduleController> {
 
       final editable = controller.isOrderEditable(effectiveOrder);
       final skipped = effectiveOrder.status == OrderStatus.skipped;
+      final scheme = Theme.of(context).colorScheme;
+      final onSurface = scheme.onSurface;
 
       return Opacity(
         opacity: skipped ? 0.55 : 1,
@@ -66,22 +68,22 @@ class OrderCard extends GetView<ScheduleController> {
                           width: 30,
                           height: 30,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: onSurface.withValues(alpha: 0.06),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.lunch_dining,
                             size: 16,
-                            color: Colors.black87,
+                            color: onSurface.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Order ${effectiveOrder.orderNumber}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: onSurface,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -91,7 +93,9 @@ class OrderCard extends GetView<ScheduleController> {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE6F6EC),
+                            color: const Color(
+                              0xFF27A768,
+                            ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -121,7 +125,7 @@ class OrderCard extends GetView<ScheduleController> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               style: TextButton.styleFrom(
-                                foregroundColor: Colors.black,
+                                foregroundColor: onSurface,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                   vertical: 8,
@@ -141,34 +145,34 @@ class OrderCard extends GetView<ScheduleController> {
                     // --- Address + time
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on_outlined,
                           size: 16,
-                          color: Colors.black54,
+                          color: onSurface.withValues(alpha: 0.55),
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             effectiveOrder.address,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: Colors.black87,
+                              color: onSurface.withValues(alpha: 0.75),
                             ),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const Icon(
+                        Icon(
                           Icons.access_time,
                           size: 16,
-                          color: Colors.black54,
+                          color: onSurface.withValues(alpha: 0.55),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${effectiveOrder.deliverySlotStart} - ${effectiveOrder.deliverySlotEnd}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Colors.black87,
+                            color: onSurface.withValues(alpha: 0.75),
                           ),
                         ),
                       ],
@@ -178,12 +182,12 @@ class OrderCard extends GetView<ScheduleController> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Delivery Slot',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                            color: onSurface,
                           ),
                         ),
                         Switch(
@@ -206,8 +210,10 @@ class OrderCard extends GetView<ScheduleController> {
                                   }
                                 }
                               : null,
-                          activeThumbColor: Colors.black,
-                          activeTrackColor: Colors.black26,
+                          activeThumbColor: scheme.primary,
+                          activeTrackColor: scheme.primary.withValues(
+                            alpha: 0.4,
+                          ),
                         ),
                       ],
                     ),
@@ -220,10 +226,10 @@ class OrderCard extends GetView<ScheduleController> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.amber.shade50,
+                        color: Colors.amber.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.amber.shade200,
+                          color: Colors.amber.withValues(alpha: 0.35),
                           width: 0.5,
                         ),
                       ),
@@ -232,7 +238,7 @@ class OrderCard extends GetView<ScheduleController> {
                           Icon(
                             Icons.schedule,
                             size: 14,
-                            color: Colors.amber.shade700,
+                            color: Colors.amber.shade400,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -241,7 +247,7 @@ class OrderCard extends GetView<ScheduleController> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.amber.shade900,
+                                color: Colors.amber.shade300,
                               ),
                             ),
                           ),
@@ -256,17 +262,17 @@ class OrderCard extends GetView<ScheduleController> {
                         children: [
                           Text(
                             'Items (${effectiveOrder.items.length})',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: onSurface.withValues(alpha: 0.8),
                             ),
                           ),
                           Text(
-                            '${effectiveOrder.totalCalories} cal total',
+                            '${effectiveOrder.items.length} item${effectiveOrder.items.length == 1 ? '' : 's'}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade500,
+                              color: onSurface.withValues(alpha: 0.5),
                             ),
                           ),
                         ],
@@ -296,10 +302,10 @@ class OrderCard extends GetView<ScheduleController> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: onSurface.withValues(alpha: 0.04),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.grey.shade300,
+                              color: onSurface.withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ),
@@ -309,7 +315,7 @@ class OrderCard extends GetView<ScheduleController> {
                               Icon(
                                 Icons.add,
                                 size: 20,
-                                color: Colors.grey.shade700,
+                                color: onSurface.withValues(alpha: 0.7),
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -317,7 +323,7 @@ class OrderCard extends GetView<ScheduleController> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700,
+                                  color: onSurface.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -339,7 +345,7 @@ class OrderCard extends GetView<ScheduleController> {
   void _showAddItemSheet(OrderModel order) {
     showModalBottomSheet<void>(
       context: Get.context!,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(Get.context!).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -362,6 +368,7 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
   Widget build(BuildContext context) {
     final editable = _canEdit;
     final skipped = order.status == OrderStatus.skipped;
+    final scheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,14 +376,15 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
         // Meal card
         Card(
           elevation: 0,
+          color: scheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: order.meal.isSkipped
-                  ? Colors.grey.shade300
+                  ? scheme.onSurface.withValues(alpha: 0.2)
                   : order.meal.isMoved
-                  ? Colors.blue.shade200
-                  : Colors.grey.shade200,
+                  ? Colors.blue.shade300
+                  : scheme.onSurface.withValues(alpha: 0.12),
               width: 1,
             ),
           ),
@@ -395,10 +403,10 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
                       order.meal.imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
-                        color: Colors.grey.shade100,
-                        child: const Icon(
+                        color: scheme.onSurface.withValues(alpha: 0.06),
+                        child: Icon(
                           Icons.restaurant,
-                          color: Colors.black54,
+                          color: scheme.onSurface.withValues(alpha: 0.5),
                           size: 24,
                         ),
                       ),
@@ -417,10 +425,10 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: order.meal.isSkipped
-                              ? Colors.grey.shade400
+                              ? scheme.onSurface.withValues(alpha: 0.35)
                               : order.meal.isMoved
-                              ? Colors.blue.shade600
-                              : Colors.black,
+                              ? Colors.blue.shade300
+                              : scheme.onSurface,
                           decoration: order.meal.isSkipped
                               ? TextDecoration.lineThrough
                               : null,
@@ -430,15 +438,14 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${order.meal.calories} Calories, fat '
-                        '${order.meal.fatGrams}g, protein '
-                        '${order.meal.proteinGrams}g and carbohydrates '
-                        '${order.meal.carbGrams}g',
+                        order.meal.description,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade600,
+                          color: scheme.onSurface.withValues(alpha: 0.55),
                           height: 1.3,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -470,7 +477,7 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
           onSwap: () {
             showModalBottomSheet<void>(
               context: Get.context!,
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(Get.context!).cardColor,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
@@ -492,6 +499,7 @@ class _SwapMealSheet extends GetView<ScheduleController> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -502,44 +510,53 @@ class _SwapMealSheet extends GetView<ScheduleController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Swap your meal',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Get.back<void>(),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: scheme.onSurface),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Select a new meal for Order ${order.orderNumber}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 13,
+                color: scheme.onSurface.withValues(alpha: 0.55),
+              ),
             ),
             const SizedBox(height: 12),
             if (order.meal.name.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: scheme.onSurface.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(
+                    color: scheme.onSurface.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Colors.black54,
+                      color: scheme.onSurface.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Current: ${order.meal.name}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: scheme.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                     ),
@@ -550,12 +567,12 @@ class _SwapMealSheet extends GetView<ScheduleController> {
             ],
             Flexible(
               child: Obx(() {
-                if (controller.meals.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
+                if (controller.availableItems.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: CircularProgressIndicator(
-                        color: Colors.black,
+                        color: scheme.primary,
                         strokeWidth: 2,
                       ),
                     ),
@@ -563,10 +580,10 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                 }
                 return ListView.separated(
                   shrinkWrap: true,
-                  itemCount: controller.meals.length,
+                  itemCount: controller.availableItems.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
-                    final meal = controller.meals[index];
+                    final meal = controller.availableItems[index];
                     final isCurrentMeal = meal.name == order.meal.name;
                     return InkWell(
                       borderRadius: BorderRadius.circular(12),
@@ -580,12 +597,12 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: isCurrentMeal
-                              ? Colors.grey.shade50
-                              : Colors.white,
+                              ? scheme.onSurface.withValues(alpha: 0.04)
+                              : scheme.surface,
                           border: Border.all(
                             color: isCurrentMeal
-                                ? Colors.grey.shade300
-                                : Colors.grey.shade200,
+                                ? scheme.onSurface.withValues(alpha: 0.2)
+                                : scheme.onSurface.withValues(alpha: 0.1),
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -600,10 +617,14 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                                   meal.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(
-                                    color: Colors.grey.shade100,
-                                    child: const Icon(
+                                    color: scheme.onSurface.withValues(
+                                      alpha: 0.06,
+                                    ),
+                                    child: Icon(
                                       Icons.restaurant,
-                                      color: Colors.black54,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -623,8 +644,10 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
                                             color: isCurrentMeal
-                                                ? Colors.grey.shade500
-                                                : Colors.black,
+                                                ? scheme.onSurface.withValues(
+                                                    alpha: 0.4,
+                                                  )
+                                                : scheme.onSurface,
                                           ),
                                         ),
                                       ),
@@ -635,16 +658,19 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: Colors.grey.shade200,
+                                            color: scheme.onSurface.withValues(
+                                              alpha: 0.1,
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               4,
                                             ),
                                           ),
-                                          child: const Text(
+                                          child: Text(
                                             'Current',
                                             style: TextStyle(
                                               fontSize: 10,
-                                              color: Colors.black54,
+                                              color: scheme.onSurface
+                                                  .withValues(alpha: 0.55),
                                             ),
                                           ),
                                         ),
@@ -652,21 +678,23 @@ class _SwapMealSheet extends GetView<ScheduleController> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${meal.calories} Calories, fat ${meal.fatGrams}g, '
-                                    'protein ${meal.proteinGrams}g and carbohydrates '
-                                    '${meal.carbGrams}g',
+                                    meal.description,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.55,
+                                      ),
                                     ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
                             if (!isCurrentMeal)
-                              const Icon(
+                              Icon(
                                 Icons.swap_horiz,
-                                color: Colors.black54,
+                                color: scheme.onSurface.withValues(alpha: 0.5),
                               ),
                           ],
                         ),
@@ -691,6 +719,7 @@ class _AddItemSheet extends GetView<ScheduleController> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -701,30 +730,37 @@ class _AddItemSheet extends GetView<ScheduleController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Add Item to Order',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Get.back<void>(),
-                  icon: const Icon(Icons.close),
+                  icon: Icon(Icons.close, color: scheme.onSurface),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Select a meal to add to Order ${order.orderNumber}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 13,
+                color: scheme.onSurface.withValues(alpha: 0.55),
+              ),
             ),
             const SizedBox(height: 12),
             Flexible(
               child: Obx(() {
-                if (controller.meals.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
+                if (controller.availableItems.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: CircularProgressIndicator(
-                        color: Colors.black,
+                        color: scheme.primary,
                         strokeWidth: 2,
                       ),
                     ),
@@ -732,10 +768,10 @@ class _AddItemSheet extends GetView<ScheduleController> {
                 }
                 return ListView.separated(
                   shrinkWrap: true,
-                  itemCount: controller.meals.length,
+                  itemCount: controller.availableItems.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
-                    final meal = controller.meals[index];
+                    final meal = controller.availableItems[index];
                     return InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
@@ -745,10 +781,7 @@ class _AddItemSheet extends GetView<ScheduleController> {
                           id: '', // Will be assigned by backend
                           name: meal.name,
                           imageUrl: meal.imageUrl,
-                          calories: meal.calories,
-                          fatGrams: meal.fatGrams,
-                          proteinGrams: meal.proteinGrams,
-                          carbGrams: meal.carbGrams,
+                          description: meal.description,
                           quantity: 1,
                           itemStatus: ItemStatus.scheduled,
                         );
@@ -757,8 +790,10 @@ class _AddItemSheet extends GetView<ScheduleController> {
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade200),
+                          color: scheme.surface,
+                          border: Border.all(
+                            color: scheme.onSurface.withValues(alpha: 0.1),
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -772,10 +807,14 @@ class _AddItemSheet extends GetView<ScheduleController> {
                                   meal.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(
-                                    color: Colors.grey.shade100,
-                                    child: const Icon(
+                                    color: scheme.onSurface.withValues(
+                                      alpha: 0.06,
+                                    ),
+                                    child: Icon(
                                       Icons.restaurant,
-                                      color: Colors.black54,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
                                       size: 20,
                                     ),
                                   ),
@@ -789,24 +828,25 @@ class _AddItemSheet extends GetView<ScheduleController> {
                                 children: [
                                   Text(
                                     meal.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: Colors.black,
+                                      color: scheme.onSurface,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${meal.calories} Cal, '
-                                    'fat ${meal.fatGrams}g, '
-                                    'protein ${meal.proteinGrams}g, '
-                                    'carbs ${meal.carbGrams}g',
+                                    meal.description,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600,
+                                      color: scheme.onSurface.withValues(
+                                        alpha: 0.55,
+                                      ),
                                     ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),

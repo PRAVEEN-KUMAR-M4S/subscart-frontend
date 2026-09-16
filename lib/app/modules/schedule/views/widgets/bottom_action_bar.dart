@@ -21,7 +21,7 @@ class BottomActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -68,7 +68,9 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final color = enabled ? Colors.black87 : Colors.grey.shade400;
+    final color = enabled
+        ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75)
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
