@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../services/theme_service.dart';
 import '../../controllers/schedule_controller.dart';
 
 /// Top section: back arrow, plan thumbnail and plan title/subtitle.
@@ -35,8 +36,10 @@ class ScheduleHeader extends GetView<ScheduleController> {
                 : Image.network(
                     url,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) =>
-                        const Icon(Icons.restaurant_menu, color: Colors.black54),
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.restaurant_menu,
+                      color: Colors.black54,
+                    ),
                   );
           }),
         ),
@@ -64,20 +67,54 @@ class ScheduleHeader extends GetView<ScheduleController> {
                   sub?.subtitle ?? '5 Meals Weekly Plan · 6-week',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             );
           }),
         ),
         const SizedBox(width: 8),
-        // Optional overflow menu
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.more_vert, color: Colors.black54),
+        // Overflow menu with theme toggle
+        PopupMenuButton<String>(
+          icon: Icon(
+            Icons.more_vert,
+            color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
+          ),
+          onSelected: (value) {
+            if (value == 'theme') {
+              Get.find<ThemeService>().toggleTheme();
+            }
+          },
+          itemBuilder: (context) {
+            final themeService = Get.find<ThemeService>();
+            return [
+              PopupMenuItem<String>(
+                value: 'theme',
+                child: Obx(() {
+                  return Row(
+                    children: [
+                      Icon(
+                        themeService.isDarkMode.value
+                            ? Icons.light_mode_rounded
+                            : Icons.dark_mode_rounded,
+                        size: 20,
+                        color: Theme.of(context).iconTheme.color,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        themeService.isDarkMode.value
+                            ? 'Light Mode'
+                            : 'Dark Mode',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ];
+          },
         ),
       ],
     );

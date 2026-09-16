@@ -14,7 +14,7 @@ class ScheduleView extends GetView<ScheduleController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Obx(() {
@@ -52,12 +52,14 @@ class ScheduleView extends GetView<ScheduleController> {
               children: [
                 const ScheduleHeader(),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Schedule',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black,
+                    color:
+                        Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.black,
                   ),
                 ),
                 const SizedBox(height: 16),
