@@ -44,6 +44,9 @@ dependencies:
   # Date/time formatting
   intl: ^0.20.2
 
+  # Live connectivity monitoring
+  connectivity_plus: ^6.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

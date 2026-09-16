@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
+import 'package:subscart/app/services/connectivity_service.dart';
 import '../controllers/schedule_controller.dart';
 import 'widgets/date_pill_row.dart';
 import 'widgets/subscription_actions_row.dart';
@@ -52,6 +52,50 @@ class ScheduleView extends GetView<ScheduleController> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 const ScheduleHeader(),
+
+                // Offline banner
+                Obx(() {
+                  final connectivity = Get.find<ConnectivityService>();
+                  if (connectivity.isOnline.value) {
+                    return const SizedBox.shrink();
+                  }
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD32F2F).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFD32F2F).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.wifi_off_rounded,
+                          size: 16,
+                          color: Color(0xFFD32F2F),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'You\'re offline — pull to retry when reconnected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
                 const SizedBox(height: 24),
                 Text(
                   'Schedule',

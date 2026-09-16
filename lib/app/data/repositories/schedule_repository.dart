@@ -412,7 +412,14 @@ class ScheduleRepository extends GetxService {
   Future<OrderModel> addItemToOrder(String orderId, MealModel newItem) async {
     print('[Repo] addItemToOrder($orderId, item: ${newItem.name})');
     try {
-      final res = await _provider.addItemToOrder(orderId, newItem.toJson());
+      // Send 'image' (backend key) not 'imageUrl' (Flutter key)
+      final payload = {
+        'name': newItem.name,
+        'image': newItem.imageUrl,
+        'description': newItem.description,
+        'quantity': newItem.quantity,
+      };
+      final res = await _provider.addItemToOrder(orderId, payload);
       final data = _extractData(res);
       if (data is Map) {
         return OrderModel.fromJson(Map<String, dynamic>.from(data));

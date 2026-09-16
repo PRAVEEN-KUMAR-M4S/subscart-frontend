@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/repositories/schedule_repository.dart';
+import '../../../services/connectivity_service.dart';
 import '../models/meal_model.dart';
 import '../models/order_model.dart';
 import '../models/subscription_model.dart';
@@ -46,6 +47,18 @@ class ScheduleController extends GetxController {
   void onInit() {
     super.onInit();
     fetchSubscription();
+
+    // Auto-retry when connectivity is restored
+    final connectivity = Get.find<ConnectivityService>();
+    ever(connectivity.isOnline, (bool online) {
+      if (online && subscription.value == null && !isLoading.value) {
+        // Was offline with no data — retry
+        fetchSubscription();
+      } else if (online && isConnectionError.value) {
+        // Was showing connection error — retry
+        fetchSubscription();
+      }
+    });
   }
 
   // ------------------------------------------------------------------
@@ -117,6 +130,16 @@ class ScheduleController extends GetxController {
 
   /// GET /subscriptions/:id (+ orders for the selected day, + GET /items).
   Future<void> fetchSubscription() async {
+    // Quick offline check before hitting the network
+    final connectivity = Get.find<ConnectivityService>();
+    if (!connectivity.isOnline.value && subscription.value == null) {
+      isConnectionError.value = true;
+      errorMessage.value =
+          'No internet connection. Please check your network and try again.';
+      isLoading.value = false;
+      return;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
     isConnectionError.value = false;
@@ -310,6 +333,8 @@ class ScheduleController extends GetxController {
     required String itemId,
     required String targetOrderId,
   }) async {
+    if (!_requireOnline()) return;
+
     isMutating.value = true;
     try {
       final (source, target) = await _repository.moveItem(
@@ -317,14 +342,15 @@ class ScheduleController extends GetxController {
         itemId,
         targetOrderId: targetOrderId,
       );
-      _replaceOrder(source);
-      _replaceOrder(target);
 
-      // Switch the selected day pill to the target order's date
-      // so the user immediately sees the newly-added item.
+      // If target is on a different date, switch the pill and reload fresh orders
       final days = subscription.value?.scheduleDays ?? const <DateSlot>[];
       final targetIndex = days.indexWhere((d) => _sameDay(d.date, target.date));
-      if (targetIndex >= 0 && targetIndex != selectedDateIndex.value) {
+      final switchingDate =
+          targetIndex >= 0 && targetIndex != selectedDateIndex.value;
+
+      if (switchingDate) {
+        // Flip the day pill to the target date
         selectedDateIndex.value = targetIndex;
         subscription.value = subscription.value?.copyWith(
           scheduleDays: days
@@ -333,9 +359,12 @@ class ScheduleController extends GetxController {
               .map((e) => e.value.copyWith(isSelected: e.key == targetIndex))
               .toList(),
         );
-        // If orders for this date were not loaded yet, _replaceOrder already
-        // added the target; ensure it's the selected one.
-        selectedOrder.value = target;
+        // Full reload for the new date — replaces the entire list correctly
+        await _loadOrdersForSelection();
+      } else {
+        // Same date — just update both orders in place
+        _replaceOrder(source);
+        _replaceOrder(target);
       }
 
       Get.snackbar(
@@ -399,6 +428,8 @@ class ScheduleController extends GetxController {
     String? startTime,
     String? endTime,
   }) async {
+    if (!_requireOnline()) return;
+
     // --- Client-side validation: reject past dates ---
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -941,10 +972,30 @@ class ScheduleController extends GetxController {
     return updated;
   }
 
+  /// Returns true if online; shows snackbar and returns false if offline.
+  bool _requireOnline() {
+    final connectivity = Get.find<ConnectivityService>();
+    if (!connectivity.isOnline.value) {
+      Get.snackbar(
+        'You\'re offline',
+        'This action requires an internet connection.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _mutateOrder(
     String action,
     Future<OrderModel> Function() doAction,
   ) async {
+    if (!_requireOnline()) return;
+
     isMutating.value = true;
     try {
       await doAction();

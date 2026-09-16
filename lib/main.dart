@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'app/routes/app_pages.dart';
+import 'app/services/connectivity_service.dart';
 import 'app/services/theme_service.dart';
 
 void main() {
   Get.put(ThemeService(), permanent: true);
+  Get.put(ConnectivityService(), permanent: true);
   runApp(const SubsCartApp());
 }
 
