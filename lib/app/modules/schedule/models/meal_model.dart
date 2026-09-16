@@ -57,7 +57,7 @@ class MealModel {
     }
 
     return MealModel(
-      id: (json['id'] ?? json['_id'])?.toString() ?? '',
+      id: (json['_id'] ?? json['id'])?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       imageUrl: (json['imageUrl'] ?? json['image'])?.toString() ?? '',
       calories: _toInt(json['calories']),

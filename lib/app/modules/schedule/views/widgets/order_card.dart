@@ -7,16 +7,315 @@ import '../../models/order_model.dart';
 import 'bottom_action_bar.dart';
 import 'meal_item_card.dart';
 
-/// White rounded card describing the selected day's order.
+/// White rounded card describing an order for the selected day.
 /// Each item is displayed with its image, name, description,
 /// and skip/swap/move buttons below it.
+///
+/// When [order] is provided, the card renders that specific order
+/// (used in the multi-order list).  When null, falls back to
+/// [ScheduleController.selectedOrder] (legacy single-card mode).
 class OrderCard extends GetView<ScheduleController> {
-  const OrderCard({super.key});
+  final OrderModel? order;
 
-  bool get _canEdit {
-    final order = controller.selectedOrder.value;
-    if (order == null) return false;
-    return controller.isOrderEditable(order);
+  const OrderCard({super.key, this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final effectiveOrder = order ?? controller.selectedOrder.value;
+      if (effectiveOrder == null) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          alignment: Alignment.center,
+          child: Text(
+            'No order scheduled for this day.',
+            style: TextStyle(color: Colors.grey.shade500),
+          ),
+        );
+      }
+
+      final editable = controller.isOrderEditable(effectiveOrder);
+      final skipped = effectiveOrder.status == OrderStatus.skipped;
+
+      return Opacity(
+        opacity: skipped ? 0.55 : 1,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // --- Top row: order title + tag | Re-schedule button
+                      Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.lunch_dining,
+                              size: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Order ${effectiveOrder.orderNumber}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6F6EC),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              effectiveOrder.deliveryTag,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF27A768),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (editable && !controller.isMutating.value)
+                            Flexible(
+                              child: TextButton.icon(
+                                onPressed: () {
+                                  debugPrint(
+                                    '[Reschedule] tapped for ${effectiveOrder.id}',
+                                  );
+                                  controller.pickAndRescheduleOrder(
+                                    effectiveOrder.id,
+                                  );
+                                },
+                                icon: const Icon(Icons.calendar_month, size: 16),
+                                label: const Text('Reschedule', overflow: TextOverflow.ellipsis),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  minimumSize: const Size(0, 36),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const Divider(height: 20),
+                      // --- Address + time
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              effectiveOrder.address,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${effectiveOrder.deliverySlotStart} - ${effectiveOrder.deliverySlotEnd}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      // --- Delivery Slot toggle
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Delivery Slot',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                          Switch(
+                            value: effectiveOrder.deliverySlotEnabled,
+                            onChanged: editable
+                                ? (v) {
+                                    final idx = controller.orders.indexWhere(
+                                      (o) => o.id == effectiveOrder.id,
+                                    );
+                                    if (idx >= 0) {
+                                      controller.orders[idx] = effectiveOrder
+                                          .copyWith(deliverySlotEnabled: v);
+                                    }
+                                    if (controller.selectedOrder.value?.id ==
+                                        effectiveOrder.id) {
+                                      controller.selectedOrder.value =
+                                          effectiveOrder.copyWith(
+                                            deliverySlotEnabled: v,
+                                          );
+                                    }
+                                  }
+                                : null,
+                            activeThumbColor: Colors.black,
+                            activeTrackColor: Colors.black26,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // --- Edit cut-off helper
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 14,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Edits allowed until ${effectiveOrder.editableUntil} the day of your Order',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // --- Items section header
+                      if (effectiveOrder.items.length > 1) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Items (${effectiveOrder.items.length})',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              '${effectiveOrder.totalCalories} cal total',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      // --- Each item with MealItemCard
+                      ...effectiveOrder.items.asMap().entries.map(
+                        (entry) => MealItemCard(
+                          meal: entry.value,
+                          itemId: effectiveOrder.getItemBackendId(entry.key),
+                        ),
+                      ),
+                      // Fallback to primary meal if items is empty
+                      if (effectiveOrder.items.isEmpty) ...[
+                        _PrimaryMealCardWithActions(order: effectiveOrder),
+                      ],
+                      // --- Add Item button (only if editable)
+                      if (editable && !controller.isMutating.value) ...[
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () => _showAddItemSheet(effectiveOrder),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Colors.grey.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add Item',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+          ),
+        ),
+      );
+    });
   }
 
   void _confirmSkip(OrderModel order) {
@@ -56,278 +355,6 @@ class OrderCard extends GetView<ScheduleController> {
       builder: (_) => _AddItemSheet(order: order),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Obx(() {
-      final order = controller.selectedOrder.value;
-      if (order == null) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 32),
-          alignment: Alignment.center,
-          child: Text(
-            'No order scheduled for this day.',
-            style: TextStyle(color: Colors.grey.shade500),
-          ),
-        );
-      }
-
-      final skipped = order.status == OrderStatus.skipped;
-      final editable = _canEdit;
-
-      return Opacity(
-        opacity: skipped ? 0.55 : 1,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // --- Top row: order title + tag | Re-schedule button
-                    Row(
-                      children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.lunch_dining,
-                            size: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Order ${order.orderNumber}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F6EC),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            order.deliveryTag,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF27A768),
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        if (editable && !controller.isMutating.value)
-                          TextButton.icon(
-                            onPressed: () {
-                              debugPrint('[Reschedule] tapped for ${order.id}');
-                              controller.pickAndRescheduleOrder(order.id);
-                            },
-                            icon: const Icon(Icons.calendar_month, size: 16),
-                            label: const Text('Reschedule'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              minimumSize: const Size(0, 36),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Divider(height: 20),
-                    // --- Address + time
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.black54,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            order.address,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: Colors.black54,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${order.deliverySlotStart} - ${order.deliverySlotEnd}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // --- Delivery Slot toggle
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Delivery Slot',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        Switch(
-                          value: order.deliverySlotEnabled,
-                          onChanged: editable
-                              ? (v) {
-                                  controller.orders[controller.orders
-                                      .indexWhere(
-                                        (o) => o.id == order.id,
-                                      )] = order.copyWith(
-                                    deliverySlotEnabled: v,
-                                  );
-                                  if (controller.selectedOrder.value?.id ==
-                                      order.id) {
-                                    controller.selectedOrder.value = order
-                                        .copyWith(deliverySlotEnabled: v);
-                                  }
-                                }
-                              : null,
-                          activeThumbColor: Colors.black,
-                          activeTrackColor: Colors.black26,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // --- Edit cut-off helper
-                    Text(
-                      'Edits allowed until ${order.editableUntil} the day of your Order',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // --- Items section header
-                    if (order.items.length > 1) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Items (${order.items.length})',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            '${order.totalCalories} cal total',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    // --- Each item with MealItemCard (includes BottomActionBar at bottom)
-                    ...order.items.map((item) => MealItemCard(meal: item)),
-                    // Fallback to primary meal if items is empty
-                    if (order.items.isEmpty) ...[
-                      _PrimaryMealCardWithActions(order: order),
-                    ],
-                    // --- Add Item button (only if editable)
-                    if (editable && !controller.isMutating.value) ...[
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _showAddItemSheet(order),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add,
-                                size: 20,
-                                color: Colors.grey.shade700,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Add Item',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
-  }
 }
 
 /// Primary meal card widget with BottomActionBar when items list is empty.
@@ -337,7 +364,6 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
   const _PrimaryMealCardWithActions({required this.order});
 
   bool get _canEdit {
-    if (order == null) return false;
     return controller.isOrderEditable(order);
   }
 
@@ -357,8 +383,6 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
             side: BorderSide(
               color: order.meal.isSkipped
                   ? Colors.grey.shade300
-                  : order.meal.isSwapped
-                  ? const Color(0xFF27A768).withValues(alpha: 0.5)
                   : order.meal.isMoved
                   ? Colors.blue.shade200
                   : Colors.grey.shade200,
@@ -403,8 +427,6 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
                           fontWeight: FontWeight.w600,
                           color: order.meal.isSkipped
                               ? Colors.grey.shade400
-                              : order.meal.isSwapped
-                              ? const Color(0xFF27A768)
                               : order.meal.isMoved
                               ? Colors.blue.shade600
                               : Colors.black,

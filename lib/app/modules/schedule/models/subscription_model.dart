@@ -139,12 +139,11 @@ class SubscriptionModel {
     if (rawDays == null || rawDays.isEmpty) {
       days = [];
     } else if (rawDays.first is String) {
-      // Backend format: ['Mon', 'Tue', ...]
-      final anchor = startDate ?? DateTime.now();
-      days = rawDays.map((dayStr) {
-        final nextDate = _nextDateForDay(anchor, dayStr.toString());
-        return DateSlot(day: dayStr.toString(), date: nextDate);
-      }).toList();
+      // Backend format: ['Mon', 'Tue', ...] — day abbreviations
+      // Generate DateSlots for EVERY occurrence across the full subscription
+      final subStart = startDate ?? DateTime.now();
+      final subEnd = endDate ?? subStart.add(const Duration(days: 42));
+      days = _generateAllDates(rawDays.cast<String>(), subStart, subEnd);
     } else {
       // Flutter-expected format: [{'day': 'Tue', 'date': '...', ...}]
       days = rawDays
@@ -165,8 +164,13 @@ class SubscriptionModel {
     );
   }
 
-  /// Find the next occurrence of a day-of-week abbreviation from [from].
-  static DateTime _nextDateForDay(DateTime from, String dayAbbr) {
+  /// Generate DateSlots for every occurrence of [dayAbbrs] between
+  /// [start] and [end] (inclusive).
+  static List<DateSlot> _generateAllDates(
+    List<String> dayAbbrs,
+    DateTime start,
+    DateTime end,
+  ) {
     const dayMap = {
       'Mon': DateTime.monday,
       'Tue': DateTime.tuesday,
@@ -176,14 +180,31 @@ class SubscriptionModel {
       'Sat': DateTime.saturday,
       'Sun': DateTime.sunday,
     };
-    final target = dayMap[dayAbbr];
-    if (target == null) return from;
 
-    var d = DateTime(from.year, from.month, from.day);
-    while (d.weekday != target) {
-      d = d.add(const Duration(days: 1));
+    // Resolve day abbreviations to weekday ints
+    final targetWeekdays = dayAbbrs
+        .map((d) => dayMap[d])
+        .whereType<int>()
+        .toSet();
+
+    if (targetWeekdays.isEmpty) return [];
+
+    final List<DateSlot> result = [];
+    var current = DateTime(start.year, start.month, start.day);
+    final lastDay = DateTime(end.year, end.month, end.day);
+
+    while (!current.isAfter(lastDay)) {
+      if (targetWeekdays.contains(current.weekday)) {
+        final abbr = dayAbbrs.firstWhere(
+          (a) => dayMap[a] == current.weekday,
+          orElse: () => '',
+        );
+        result.add(DateSlot(day: abbr, date: current));
+      }
+      current = current.add(const Duration(days: 1));
     }
-    return d;
+
+    return result;
   }
 
   /// Convenience factory used by the provider's mock fallback.

@@ -185,6 +185,14 @@ class ScheduleController extends GetxController {
     }
   }
 
+  /// User taps one of multiple order cards on the same date.
+  /// Updates [selectedOrder] so the card highlights and downstream
+  /// widgets (swap sheets, move-item flows) operate on the right order.
+  void selectOrder(String orderId) {
+    final match = orders.firstWhereOrNull((o) => o.id == orderId);
+    if (match != null) selectedOrder.value = match;
+  }
+
   /// Confirm dialog must be shown by the view BEFORE calling this.
   Future<void> togglePauseSubscription() async {
     final sub = subscription.value;
@@ -258,7 +266,17 @@ class ScheduleController extends GetxController {
   Future<void> skipItem(String orderId, String itemId) async {
     await _mutateOrder('skipItem', () async {
       final updated = await _repository.skipItem(orderId, itemId);
-      return _replaceOrder(updated);
+      _replaceOrder(updated);
+      Get.snackbar(
+        'Item removed',
+        'The meal has been removed from your order.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      );
+      return updated;
     });
   }
 
@@ -270,7 +288,17 @@ class ScheduleController extends GetxController {
   ) async {
     await _mutateOrder('swapItem', () async {
       final updated = await _repository.swapItem(orderId, itemId, newMeal);
-      return _replaceOrder(updated);
+      _replaceOrder(updated);
+      Get.snackbar(
+        'Meal swapped',
+        'Swapped to ${newMeal.name}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      );
+      return updated;
     });
   }
 
@@ -349,11 +377,21 @@ class ScheduleController extends GetxController {
   Future<void> addItemToOrder(String orderId, MealModel newItem) async {
     await _mutateOrder('addItem', () async {
       final updated = await _repository.addItemToOrder(orderId, newItem);
-      return _replaceOrder(updated);
+      _replaceOrder(updated);
+      Get.snackbar(
+        'Item added',
+        '${newItem.name} added to your order.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      );
+      return updated;
     });
   }
 
-  /// Date picker result (restricted to schedule days) lands here.
+  /// Date picker result (any date within subscription range).
   /// Optionally passes startTime/endTime for combined date+time reschedule.
   Future<void> moveOrder(
     String orderId,
@@ -361,30 +399,133 @@ class ScheduleController extends GetxController {
     String? startTime,
     String? endTime,
   }) async {
-    await _mutateOrder('move', () async {
+    // --- Client-side validation: reject past dates ---
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final targetDate = DateTime(newDate.year, newDate.month, newDate.day);
+    if (targetDate.isBefore(today)) {
+      Get.snackbar(
+        'Invalid date',
+        'Cannot reschedule to a past date. Please choose a future date.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    // If rescheduling to today, validate the time slot is also in the future
+    if (targetDate.isAtSameMomentAs(today) && startTime != null) {
+      final parsedTime = _parseTimeOfDay(startTime);
+      if (parsedTime != null) {
+        final slotDateTime = DateTime(
+          now.year, now.month, now.day,
+          parsedTime.hour, parsedTime.minute,
+        );
+        if (!slotDateTime.isAfter(now)) {
+          Get.snackbar(
+            'Invalid time',
+            'Cannot reschedule to a past time today. Please choose a future time slot.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF323232),
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(12),
+            duration: const Duration(seconds: 4),
+          );
+          return;
+        }
+      }
+    }
+
+    isMutating.value = true;
+    try {
+      final oldOrder = orders.firstWhereOrNull((o) => o.id == orderId);
+      final oldDate = oldOrder?.date;
+
       final updated = await _repository.moveOrder(
         orderId,
         newDate,
         startTime: startTime,
         endTime: endTime,
       );
-      final replaced = _replaceOrder(updated);
+      _replaceOrder(updated);
 
-      // Keep day pills in sync: highlight the day the order moved to.
-      final days = subscription.value?.scheduleDays ?? const <DateSlot>[];
-      final targetIndex = days.indexWhere((d) => _sameDay(d.date, newDate));
-      if (targetIndex >= 0) {
-        selectedDateIndex.value = targetIndex;
-        subscription.value = subscription.value?.copyWith(
-          scheduleDays: days
-              .asMap()
-              .entries
-              .map((e) => e.value.copyWith(isSelected: e.key == targetIndex))
-              .toList(),
+      final days = List<DateSlot>.from(
+        subscription.value?.scheduleDays ?? const <DateSlot>[],
+      );
+
+      // 1) If moving to a date that's not a schedule-day pill yet,
+      //    create a new DateSlot and insert it in chronological order.
+      var targetIndex = days.indexWhere((d) => _sameDay(d.date, newDate));
+      if (targetIndex < 0) {
+        const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final dayLabel = weekdayLabels[newDate.weekday - 1];
+        final newSlot = DateSlot(
+          day: dayLabel,
+          date: newDate,
+          isSelected: true,
         );
+        days.add(newSlot);
+        days.sort((a, b) => a.date.compareTo(b.date));
+        targetIndex = days.indexWhere((d) => _sameDay(d.date, newDate));
       }
-      return replaced;
-    });
+
+      // 2) (Optional) If the OLD date no longer has any orders after the move,
+      //    remove the old date's pill (unless it still has other orders from
+      //    the original schedule).  Skip removal if oldDate == newDate.
+      if (oldDate != null && !_sameDay(oldDate, newDate)) {
+        final remainingOnOld = orders.where(
+          (o) => o.id != orderId && _sameDay(o.date, oldDate),
+        );
+        if (remainingOnOld.isEmpty) {
+          final oldIndex = days.indexWhere((d) => _sameDay(d.date, oldDate));
+          if (oldIndex >= 0) {
+            days.removeAt(oldIndex);
+            if (oldIndex < targetIndex) targetIndex--;
+          }
+        }
+      }
+
+      // 3) Clamp targetIndex just in case, then flip selection to target.
+      if (targetIndex >= days.length) targetIndex = days.length - 1;
+      if (targetIndex < 0) targetIndex = 0;
+
+      selectedDateIndex.value = targetIndex;
+      subscription.value = subscription.value?.copyWith(
+        scheduleDays: days
+            .asMap()
+            .entries
+            .map((e) => e.value.copyWith(isSelected: e.key == targetIndex))
+            .toList(),
+      );
+
+      // 4) Reload orders for the new date so UI reflects the moved order
+      //    AND any existing order that was already there.
+      await _loadOrdersForSelection();
+
+      // Snackbar confirmation — makes it obvious the move happened.
+      final formattedDate = DateFormat('EEEE, MMM d').format(newDate);
+      final slot = (startTime != null && endTime != null)
+          ? ' · $startTime – $endTime'
+          : '';
+      Get.snackbar(
+        'Order rescheduled',
+        'Order ${updated.orderNumber} → $formattedDate$slot',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 3),
+      );
+    } on RepositoryException catch (e) {
+      _handleError(e, 'moveOrder');
+    } catch (e) {
+      _handleError(e, 'moveOrder');
+    } finally {
+      isMutating.value = false;
+    }
   }
 
   /// Time picker result lands here; blocked once past the edit cut-off.
@@ -405,6 +546,37 @@ class ScheduleController extends GetxController {
       );
       return;
     }
+
+    // --- Client-side validation: if order is today, reject past time ---
+    if (order != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final orderDate = DateTime(
+        order.date.year, order.date.month, order.date.day,
+      );
+      if (orderDate.isAtSameMomentAs(today)) {
+        final parsedTime = _parseTimeOfDay(start);
+        if (parsedTime != null) {
+          final slotDateTime = DateTime(
+            now.year, now.month, now.day,
+            parsedTime.hour, parsedTime.minute,
+          );
+          if (!slotDateTime.isAfter(now)) {
+            Get.snackbar(
+              'Invalid time',
+              'Cannot reschedule to a past time today. Please choose a future time slot.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: const Color(0xFF323232),
+              colorText: Colors.white,
+              margin: const EdgeInsets.all(12),
+              duration: const Duration(seconds: 4),
+            );
+            return;
+          }
+        }
+      }
+    }
+
     await _mutateOrder('reschedule', () async {
       final updated = await _repository.rescheduleDeliverySlot(
         orderId,
@@ -548,11 +720,12 @@ class ScheduleController extends GetxController {
         if (!pickedDateTime.isAfter(now)) {
           Get.snackbar(
             'Invalid time',
-            'Please choose a time in the future for today.',
+            'Cannot reschedule to a past time today. Please choose a future time slot.',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: const Color(0xFF323232),
             colorText: Colors.white,
             margin: const EdgeInsets.all(12),
+            duration: const Duration(seconds: 4),
           );
           return;
         }
@@ -564,25 +737,139 @@ class ScheduleController extends GetxController {
       final endTime = _formatTimeOfDay(endTod);
 
       // ---- Confirmation dialog — fire action directly in onConfirm ----
-      Get.defaultDialog(
-        title: 'Confirm reschedule',
-        middleText:
-            'Move Order ${order.orderNumber} to\n${DateFormat('EEEE, MMM d').format(selectedDate)} · $startTime - $endTime',
-        textCancel: 'Cancel',
-        textConfirm: 'Reschedule',
-        confirmTextColor: Colors.white,
-        buttonColor: Colors.black,
-        barrierDismissible: true,
-        onConfirm: () {
-          Get.back<void>();
-          // Fire the reschedule immediately after dialog closes
-          moveOrder(
-            orderId,
-            selectedDate,
-            startTime: startTime,
-            endTime: endTime,
-          );
-        },
+      Get.dialog(
+        Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon circle
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.calendar_month_rounded,
+                    size: 28,
+                    color: Colors.blue.shade500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Confirm Reschedule',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Move Order ${order.orderNumber} to',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Date/time info card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            DateFormat('EEEE, MMM d').format(selectedDate),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$startTime – $endTime',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Get.back<void>(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Get.back<void>();
+                          moveOrder(
+                            orderId,
+                            selectedDate,
+                            startTime: startTime,
+                            endTime: endTime,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Reschedule'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     } catch (e, stack) {
       print('[Controller] pickAndRescheduleOrder error: $e\n$stack');

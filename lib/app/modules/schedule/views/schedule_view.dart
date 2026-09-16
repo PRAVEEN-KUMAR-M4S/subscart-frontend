@@ -49,10 +49,10 @@ class ScheduleView extends GetView<ScheduleController> {
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              children: const [
-                ScheduleHeader(),
-                SizedBox(height: 24),
-                Text(
+              children: [
+                const ScheduleHeader(),
+                const SizedBox(height: 24),
+                const Text(
                   'Schedule',
                   style: TextStyle(
                     fontSize: 22,
@@ -60,12 +60,56 @@ class ScheduleView extends GetView<ScheduleController> {
                     color: Colors.black,
                   ),
                 ),
-                SizedBox(height: 16),
-                DatePillRow(),
-                SizedBox(height: 20),
-                SubscriptionActionsRow(),
-                SizedBox(height: 20),
-                OrderCard(),
+                const SizedBox(height: 16),
+                const DatePillRow(),
+                const SizedBox(height: 20),
+                const SubscriptionActionsRow(),
+                const SizedBox(height: 20),
+                // ---- Render ALL orders for the selected date ----
+                Obx(() {
+                  final list = controller.orders;
+                  // Initial empty or loading state — show the empty card using
+                  // the legacy single-card path (which renders the friendly
+                  // "No order scheduled" message).
+                  if (list.isEmpty) return const OrderCard();
+
+                  // Render one card per order.
+                  return Column(
+                    children: [
+                      if (list.length > 1) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Text(
+                                '${list.length} deliveries on this date',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.info_outline,
+                                size: 14,
+                                color: Colors.black38,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      ...list.asMap().entries.map(
+                        (e) => Padding(
+                          padding: EdgeInsets.only(
+                            bottom: e.key == list.length - 1 ? 0 : 16,
+                          ),
+                          child: OrderCard(order: e.value),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           );
@@ -108,10 +152,7 @@ class _ConnectionErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ConnectionErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ConnectionErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +193,7 @@ class _ConnectionErrorView extends StatelessWidget {
             Text(
               message.isEmpty
                   ? 'Make sure your backend is running and your device '
-                      'is on the same Wi-Fi network.'
+                        'is on the same Wi-Fi network.'
                   : message,
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -186,7 +227,9 @@ class _ConnectionErrorView extends StatelessWidget {
                   SizedBox(height: 6),
                   _CheckItem('Backend is running (npm run dev)'),
                   _CheckItem('Device is on the same Wi-Fi as your PC'),
-                  _CheckItem('IP address matches in schedule_api_provider.dart'),
+                  _CheckItem(
+                    'IP address matches in schedule_api_provider.dart',
+                  ),
                 ],
               ),
             ),
@@ -208,10 +251,7 @@ class _ConnectionErrorView extends StatelessWidget {
                 ),
                 child: const Text(
                   'Retry',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -233,7 +273,11 @@ class _CheckItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle_outline, size: 14, color: Colors.black45),
+          const Icon(
+            Icons.check_circle_outline,
+            size: 14,
+            color: Colors.black45,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -255,10 +299,7 @@ class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -268,11 +309,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.black26,
-            ),
+            const Icon(Icons.error_outline, size: 48, color: Colors.black26),
             const SizedBox(height: 16),
             const Text(
               'Something went wrong',

@@ -12,16 +12,22 @@ import 'bottom_action_bar.dart';
 /// When skipped, the item animates out and is removed from the UI.
 class MealItemCard extends GetView<ScheduleController> {
   final MealModel meal;
+  final String? itemId;
   final VoidCallback? onRemoved; // Callback when item is removed
 
-  const MealItemCard({super.key, required this.meal, this.onRemoved});
+  const MealItemCard({
+    super.key,
+    required this.meal,
+    this.itemId,
+    this.onRemoved,
+  });
 
   /// The backend sub-document `_id` for this item.
   ///
   /// Derived directly from `meal.id` (already parsed from backend JSON)
   /// so we NEVER depend on positional list indices — which can drift
   /// when earlier items are skipped/moved/added.
-  String get backendItemId => meal.id;
+  String get backendItemId => itemId ?? meal.id;
 
   bool get _isEditable {
     final order = controller.selectedOrder.value;
@@ -32,23 +38,97 @@ class MealItemCard extends GetView<ScheduleController> {
   void _confirmSkip(OrderModel order) {
     final itemId = backendItemId;
     if (itemId.isEmpty) return;
-    Get.defaultDialog(
-      title: 'Skip this item?',
-      middleText: 'This meal item will be removed from your order.',
-      textCancel: 'Cancel',
-      textConfirm: 'Skip',
-      confirmTextColor: Colors.white,
-      buttonColor: Colors.black,
-      onConfirm: () {
-        Get.back<void>();
-        controller.skipItem(order.id, itemId);
-      },
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon circle
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.skip_next_rounded,
+                  size: 28,
+                  color: Colors.red.shade400,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Skip this item?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This meal item will be removed from your order. You can add it back later.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back<void>(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back<void>();
+                        controller.skipItem(order.id, itemId);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Skip'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   void _openSwapSheet(OrderModel order) {
     final itemId = backendItemId;
     if (itemId.isEmpty) return;
+    final currentMeal = meal.swappedMeal ?? meal;
     showModalBottomSheet<void>(
       context: Get.context!,
       backgroundColor: Colors.white,
@@ -56,7 +136,7 @@ class MealItemCard extends GetView<ScheduleController> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) =>
-          _SwapItemSheet(order: order, currentMeal: meal, itemId: itemId),
+          _SwapItemSheet(order: order, currentMeal: currentMeal, itemId: itemId),
     );
   }
 
@@ -66,21 +146,22 @@ class MealItemCard extends GetView<ScheduleController> {
 
     final days = controller.scheduleDays;
     if (days.isEmpty) return;
-    final first = days.first.date;
-    final last = days.last.date;
+    final first = DateUtils.dateOnly(days.first.date);
+    final last = DateUtils.dateOnly(days.last.date);
+    final sourceDate = DateUtils.dateOnly(sourceOrder.date);
+    final initialDate = sourceDate.isBefore(first)
+        ? first
+        : sourceDate.isAfter(last)
+        ? last
+        : sourceDate;
 
     final picked = await showDatePicker(
       context: Get.context!,
-      initialDate: sourceOrder.date.isBefore(first)
-          ? first
-          : (sourceOrder.date.isAfter(last) ? last : sourceOrder.date),
+      initialDate: initialDate,
       firstDate: first,
       lastDate: last,
       selectableDayPredicate: (d) => days.any(
-        (slot) =>
-            slot.date.year == d.year &&
-            slot.date.month == d.month &&
-            slot.date.day == d.day,
+        (slot) => DateUtils.isSameDay(slot.date, d),
       ),
       helpText: 'Move to a scheduled day',
     );
@@ -220,8 +301,6 @@ class MealItemCard extends GetView<ScheduleController> {
                             fontWeight: FontWeight.w700,
                             color: skipped
                                 ? Colors.grey.shade400
-                                : meal.isSwapped
-                                ? const Color(0xFF27A768)
                                 : meal.isMoved
                                 ? Colors.blue.shade600
                                 : Colors.black,
@@ -244,29 +323,6 @@ class MealItemCard extends GetView<ScheduleController> {
                                 : Colors.grey.shade600,
                           ),
                         ),
-                        if (meal.isSwapped) ...[
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF27A768,
-                              ).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Swapped',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF27A768),
-                              ),
-                            ),
-                          ),
-                        ],
                         if (meal.isMoved) ...[
                           const SizedBox(height: 2),
                           Container(
