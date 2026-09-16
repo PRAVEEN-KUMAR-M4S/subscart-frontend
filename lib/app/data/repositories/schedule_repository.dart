@@ -273,10 +273,23 @@ class ScheduleRepository extends GetxService {
   }
 
   /// PATCH /orders/:id/move
-  Future<OrderModel> moveOrder(String orderId, DateTime newDate) async {
-    print('[Repo] moveOrder($orderId, to: $newDate)');
+  /// Reschedule order to a new date, and optionally a new time slot.
+  Future<OrderModel> moveOrder(
+    String orderId,
+    DateTime newDate, {
+    String? startTime,
+    String? endTime,
+  }) async {
+    print(
+      '[Repo] moveOrder($orderId, to: $newDate, time: $startTime-$endTime)',
+    );
     try {
-      final res = await _provider.moveOrder(orderId, newDate);
+      final res = await _provider.moveOrder(
+        orderId,
+        newDate,
+        startTime: startTime,
+        endTime: endTime,
+      );
       final data = _extractData(res);
       if (data is Map) {
         return OrderModel.fromJson(Map<String, dynamic>.from(data));
@@ -366,17 +379,31 @@ class ScheduleRepository extends GetxService {
   }
 
   /// PATCH /orders/:orderId/items/:itemId/move
-  Future<OrderModel> moveItem(
+  /// Returns `(sourceOrder, targetOrder)` after the move.
+  Future<(OrderModel source, OrderModel target)> moveItem(
     String orderId,
-    String itemId,
-    DateTime newDate,
-  ) async {
-    print('[Repo] moveItem($orderId, item: $itemId, to: $newDate)');
+    String itemId, {
+    required String targetOrderId,
+  }) async {
+    print(
+      '[Repo] moveItem($orderId, item: $itemId, -> target: $targetOrderId)',
+    );
     try {
-      final res = await _provider.moveItem(orderId, itemId, newDate);
+      final res = await _provider.moveItem(
+        orderId,
+        itemId,
+        targetOrderId: targetOrderId,
+      );
       final data = _extractData(res);
       if (data is Map) {
-        return OrderModel.fromJson(Map<String, dynamic>.from(data));
+        final sourceRaw = data['sourceOrder'];
+        final targetRaw = data['targetOrder'];
+        if (sourceRaw is Map && targetRaw is Map) {
+          return (
+            OrderModel.fromJson(Map<String, dynamic>.from(sourceRaw)),
+            OrderModel.fromJson(Map<String, dynamic>.from(targetRaw)),
+          );
+        }
       }
       throw RepositoryException(
         'Unexpected server response.',
@@ -388,10 +415,7 @@ class ScheduleRepository extends GetxService {
   }
 
   /// POST /orders/:orderId/items - Add a new item to an order
-  Future<OrderModel> addItemToOrder(
-    String orderId,
-    MealModel newItem,
-  ) async {
+  Future<OrderModel> addItemToOrder(String orderId, MealModel newItem) async {
     print('[Repo] addItemToOrder($orderId, item: ${newItem.name})');
     try {
       final res = await _provider.addItemToOrder(orderId, newItem.toJson());

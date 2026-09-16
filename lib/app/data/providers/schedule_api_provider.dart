@@ -42,14 +42,31 @@ class ScheduleApiProvider {
     return _dio.get('/subscriptions/$subscriptionId');
   }
 
-  /// GET /subscriptions/:id/orders?date=
+  /// GET /subscriptions/:id/orders
+  /// Supports:
+  ///   - [date]: single day (YYYY-MM-DD)
+  ///   - [startDate] + [endDate]: date range
+  ///   - no params: returns all orders within subscription's startDate-endDate
   Future<Response<dynamic>> fetchOrders(
     String subscriptionId, {
     DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
+    final Map<String, dynamic> queryParams = {};
+    if (date != null) {
+      queryParams['date'] = date.toIso8601String();
+    } else {
+      if (startDate != null) {
+        queryParams['startDate'] = startDate.toIso8601String();
+      }
+      if (endDate != null) {
+        queryParams['endDate'] = endDate.toIso8601String();
+      }
+    }
     return _dio.get(
       '/subscriptions/$subscriptionId/orders',
-      queryParameters: {if (date != null) 'date': date.toIso8601String()},
+      queryParameters: queryParams.isEmpty ? null : queryParams,
     );
   }
 
@@ -109,11 +126,17 @@ class ScheduleApiProvider {
   }
 
   /// PATCH /orders/:id/move
-  Future<Response<dynamic>> moveOrder(String orderId, DateTime newDate) async {
-    return _dio.patch(
-      '/orders/$orderId/move',
-      data: {'newDate': newDate.toIso8601String()},
-    );
+  /// Supports date-only move or combined date+time reschedule.
+  Future<Response<dynamic>> moveOrder(
+    String orderId,
+    DateTime newDate, {
+    String? startTime,
+    String? endTime,
+  }) async {
+    final data = <String, dynamic>{'newDate': newDate.toIso8601String()};
+    if (startTime != null) data['startTime'] = startTime;
+    if (endTime != null) data['endTime'] = endTime;
+    return _dio.patch('/orders/$orderId/move', data: data);
   }
 
   /// PATCH /orders/:id/reschedule
@@ -164,14 +187,15 @@ class ScheduleApiProvider {
   }
 
   /// PATCH /orders/:orderId/items/:itemId/move
+  /// Body: { targetOrderId: "..." }
   Future<Response<dynamic>> moveItem(
     String orderId,
-    String itemId,
-    DateTime newDate,
-  ) async {
+    String itemId, {
+    required String targetOrderId,
+  }) async {
     return _dio.patch(
       '/orders/$orderId/items/$itemId/move',
-      data: {'newDate': newDate.toIso8601String()},
+      data: {'targetOrderId': targetOrderId},
     );
   }
 
@@ -180,10 +204,7 @@ class ScheduleApiProvider {
     String orderId,
     Map<String, dynamic> itemData,
   ) async {
-    return _dio.post(
-      '/orders/$orderId/items',
-      data: itemData,
-    );
+    return _dio.post('/orders/$orderId/items', data: itemData);
   }
 
   /// GET /meals

@@ -57,35 +57,6 @@ class OrderCard extends GetView<ScheduleController> {
     );
   }
 
-  Future<void> _pickMoveDate(OrderModel order) async {
-    final days = controller.scheduleDays;
-    if (days.isEmpty) return;
-    final first = days.first.date;
-    final last = days.last.date;
-
-    final picked = await showDatePicker(
-      context: Get.context!,
-      initialDate: order.date.isBefore(first)
-          ? first
-          : (order.date.isAfter(last) ? last : order.date),
-      firstDate: first,
-      lastDate: last,
-      selectableDayPredicate: (d) => days.any(
-        (slot) =>
-            slot.date.year == d.year &&
-            slot.date.month == d.month &&
-            slot.date.day == d.day,
-      ),
-      helpText: 'Move to a scheduled day',
-    );
-    if (picked != null) {
-      await controller.moveOrder(
-        order.id,
-        DateTime(picked.year, picked.month, picked.day),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Obx(() {
@@ -172,18 +143,24 @@ class OrderCard extends GetView<ScheduleController> {
                         ),
                         const Spacer(),
                         if (editable && !controller.isMutating.value)
-                          Expanded(
-                            child: TextButton.icon(
-                              onPressed: () => controller
-                                  .pickAndRescheduleDeliverySlot(order.id),
-                              icon: const Icon(Icons.access_time, size: 16),
-                              label: const Text('Re-schedule'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.black,
-                                textStyle: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          TextButton.icon(
+                            onPressed: () {
+                              debugPrint('[Reschedule] tapped for ${order.id}');
+                              controller.pickAndRescheduleOrder(order.id);
+                            },
+                            icon: const Icon(Icons.calendar_month, size: 16),
+                            label: const Text('Reschedule'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              minimumSize: const Size(0, 36),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -487,34 +464,7 @@ class _PrimaryMealCardWithActions extends GetView<ScheduleController> {
               builder: (_) => _SwapMealSheet(order: order),
             );
           },
-          onMove: () async {
-            final days = controller.scheduleDays;
-            if (days.isEmpty) return;
-            final first = days.first.date;
-            final last = days.last.date;
-
-            final picked = await showDatePicker(
-              context: Get.context!,
-              initialDate: order.date.isBefore(first)
-                  ? first
-                  : (order.date.isAfter(last) ? last : order.date),
-              firstDate: first,
-              lastDate: last,
-              selectableDayPredicate: (d) => days.any(
-                (slot) =>
-                    slot.date.year == d.year &&
-                    slot.date.month == d.month &&
-                    slot.date.day == d.day,
-              ),
-              helpText: 'Move to a scheduled day',
-            );
-            if (picked != null) {
-              await controller.moveOrder(
-                order.id,
-                DateTime(picked.year, picked.month, picked.day),
-              );
-            }
-          },
+          onMove: () => controller.pickAndRescheduleOrder(order.id),
         ),
       ],
     );
@@ -795,9 +745,7 @@ class _AddItemSheet extends GetView<ScheduleController> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(
-                            color: Colors.grey.shade200,
-                          ),
+                          border: Border.all(color: Colors.grey.shade200),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(

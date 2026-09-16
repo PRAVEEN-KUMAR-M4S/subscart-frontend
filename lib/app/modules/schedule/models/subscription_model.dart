@@ -20,17 +20,16 @@ class DateSlot {
       );
 
   Map<String, dynamic> toJson() => {
-        'day': day,
-        'date': date.toIso8601String(),
-        'isSelected': isSelected,
-      };
+    'day': day,
+    'date': date.toIso8601String(),
+    'isSelected': isSelected,
+  };
 
   factory DateSlot.fromJson(Map<String, dynamic> json) => DateSlot(
-        day: json['day']?.toString() ?? '',
-        date: DateTime.tryParse(json['date']?.toString() ?? '') ??
-            DateTime.now(),
-        isSelected: json['isSelected'] == true,
-      );
+    day: json['day']?.toString() ?? '',
+    date: DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
+    isSelected: json['isSelected'] == true,
+  );
 }
 
 /// Meal-plan subscription shown on the schedule screen.
@@ -40,6 +39,10 @@ class SubscriptionModel {
   final String subtitle;
   final List<DateSlot> scheduleDays;
   final bool isPaused;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final int? mealsPerWeek;
+  final int? planDurationWeeks;
 
   const SubscriptionModel({
     required this.id,
@@ -47,6 +50,10 @@ class SubscriptionModel {
     required this.subtitle,
     required this.scheduleDays,
     required this.isPaused,
+    this.startDate,
+    this.endDate,
+    this.mealsPerWeek,
+    this.planDurationWeeks,
   });
 
   SubscriptionModel copyWith({
@@ -55,29 +62,41 @@ class SubscriptionModel {
     String? subtitle,
     List<DateSlot>? scheduleDays,
     bool? isPaused,
-  }) =>
-      SubscriptionModel(
-        id: id ?? this.id,
-        planName: planName ?? this.planName,
-        subtitle: subtitle ?? this.subtitle,
-        scheduleDays: scheduleDays ?? this.scheduleDays,
-        isPaused: isPaused ?? this.isPaused,
-      );
+    DateTime? startDate,
+    DateTime? endDate,
+    int? mealsPerWeek,
+    int? planDurationWeeks,
+  }) => SubscriptionModel(
+    id: id ?? this.id,
+    planName: planName ?? this.planName,
+    subtitle: subtitle ?? this.subtitle,
+    scheduleDays: scheduleDays ?? this.scheduleDays,
+    isPaused: isPaused ?? this.isPaused,
+    startDate: startDate ?? this.startDate,
+    endDate: endDate ?? this.endDate,
+    mealsPerWeek: mealsPerWeek ?? this.mealsPerWeek,
+    planDurationWeeks: planDurationWeeks ?? this.planDurationWeeks,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'planName': planName,
-        'subtitle': subtitle,
-        'scheduleDays': scheduleDays.map((d) => d.toJson()).toList(),
-        'isPaused': isPaused,
-      };
+    'id': id,
+    'planName': planName,
+    'subtitle': subtitle,
+    'scheduleDays': scheduleDays.map((d) => d.toJson()).toList(),
+    'isPaused': isPaused,
+    if (startDate != null) 'startDate': startDate!.toIso8601String(),
+    if (endDate != null) 'endDate': endDate!.toIso8601String(),
+    if (mealsPerWeek != null) 'mealsPerWeek': mealsPerWeek,
+    if (planDurationWeeks != null) 'planDurationWeeks': planDurationWeeks,
+  };
 
   /// Handles both Flutter-expected keys and actual backend format:
   ///   Backend: _id, planName, mealsPerWeek, planDurationWeeks,
-  ///            scheduleDays (List<String> like ['Mon','Tue']),
-  ///            status ('active'|'paused')
-  ///   Flutter: id, planName, subtitle, scheduleDays (List<DateSlot>),
-  ///            isPaused (bool)
+  ///            scheduleDays (`List<String>` like ['Mon','Tue']),
+  ///            status ('active'|'paused'),
+  ///            startDate, endDate
+  ///   Flutter: id, planName, subtitle, scheduleDays (`List<DateSlot>`),
+  ///            isPaused (bool), startDate, endDate, mealsPerWeek, planDurationWeeks
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
     // Determine isPaused from either 'isPaused' bool or 'status' string
     bool paused;
@@ -89,13 +108,23 @@ class SubscriptionModel {
       paused = false;
     }
 
+    // Parse startDate / endDate from backend
+    final startDate = DateTime.tryParse(json['startDate']?.toString() ?? '');
+    final endDate = DateTime.tryParse(json['endDate']?.toString() ?? '');
+    final mealsPerWeek = json['mealsPerWeek'] is int
+        ? json['mealsPerWeek'] as int
+        : int.tryParse(json['mealsPerWeek']?.toString() ?? '');
+    final planDurationWeeks = json['planDurationWeeks'] is int
+        ? json['planDurationWeeks'] as int
+        : int.tryParse(json['planDurationWeeks']?.toString() ?? '');
+
     // Build subtitle from mealsPerWeek + planDurationWeeks if needed
     String subtitle;
     if (json.containsKey('subtitle') && json['subtitle'] != null) {
       subtitle = json['subtitle'].toString();
     } else {
-      final meals = json['mealsPerWeek'];
-      final weeks = json['planDurationWeeks'];
+      final meals = mealsPerWeek;
+      final weeks = planDurationWeeks;
       if (meals != null && weeks != null) {
         subtitle = '$meals Meals Weekly Plan · $weeks-week';
       } else {
@@ -111,10 +140,9 @@ class SubscriptionModel {
       days = [];
     } else if (rawDays.first is String) {
       // Backend format: ['Mon', 'Tue', ...]
-      final now = DateTime.now();
+      final anchor = startDate ?? DateTime.now();
       days = rawDays.map((dayStr) {
-        // Find the next occurrence of this day from today
-        final nextDate = _nextDateForDay(now, dayStr.toString());
+        final nextDate = _nextDateForDay(anchor, dayStr.toString());
         return DateSlot(day: dayStr.toString(), date: nextDate);
       }).toList();
     } else {
@@ -130,6 +158,10 @@ class SubscriptionModel {
       subtitle: subtitle,
       scheduleDays: days,
       isPaused: paused,
+      startDate: startDate,
+      endDate: endDate,
+      mealsPerWeek: mealsPerWeek,
+      planDurationWeeks: planDurationWeeks,
     );
   }
 
@@ -157,6 +189,8 @@ class SubscriptionModel {
   /// Convenience factory used by the provider's mock fallback.
   static SubscriptionModel mock() {
     final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month, now.day);
+    final endDate = startDate.add(const Duration(days: 42));
     final days = List.generate(7, (i) {
       final date = DateTime(now.year, now.month, now.day + i);
       return DateSlot(
@@ -171,6 +205,10 @@ class SubscriptionModel {
       subtitle: '5 Meals Weekly Plan · 6-week',
       scheduleDays: days,
       isPaused: false,
+      startDate: startDate,
+      endDate: endDate,
+      mealsPerWeek: 5,
+      planDurationWeeks: 6,
     );
   }
 }

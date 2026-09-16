@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import '../../controllers/schedule_controller.dart';
 import '../../models/meal_model.dart';
@@ -11,15 +12,16 @@ import 'bottom_action_bar.dart';
 /// When skipped, the item animates out and is removed from the UI.
 class MealItemCard extends GetView<ScheduleController> {
   final MealModel meal;
-  final int itemIndex;
   final VoidCallback? onRemoved; // Callback when item is removed
 
-  const MealItemCard({
-    super.key,
-    required this.meal,
-    this.itemIndex = 0,
-    this.onRemoved,
-  });
+  const MealItemCard({super.key, required this.meal, this.onRemoved});
+
+  /// The backend sub-document `_id` for this item.
+  ///
+  /// Derived directly from `meal.id` (already parsed from backend JSON)
+  /// so we NEVER depend on positional list indices — which can drift
+  /// when earlier items are skipped/moved/added.
+  String get backendItemId => meal.id;
 
   bool get _isEditable {
     final order = controller.selectedOrder.value;
@@ -28,36 +30,40 @@ class MealItemCard extends GetView<ScheduleController> {
   }
 
   void _confirmSkip(OrderModel order) {
+    final itemId = backendItemId;
+    if (itemId.isEmpty) return;
     Get.defaultDialog(
       title: 'Skip this item?',
-      middleText:
-          'This meal item will be removed from your order.',
+      middleText: 'This meal item will be removed from your order.',
       textCancel: 'Cancel',
       textConfirm: 'Skip',
       confirmTextColor: Colors.white,
       buttonColor: Colors.black,
       onConfirm: () {
         Get.back<void>();
-        final itemId = order.getItemBackendId(itemIndex);
-        if (itemId != null && itemId.isNotEmpty) {
-          controller.skipItem(order.id, itemId);
-        }
+        controller.skipItem(order.id, itemId);
       },
     );
   }
 
   void _openSwapSheet(OrderModel order) {
+    final itemId = backendItemId;
+    if (itemId.isEmpty) return;
     showModalBottomSheet<void>(
       context: Get.context!,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _SwapItemSheet(order: order, itemIndex: itemIndex),
+      builder: (_) =>
+          _SwapItemSheet(order: order, currentMeal: meal, itemId: itemId),
     );
   }
 
-  Future<void> _pickMoveDate(OrderModel order) async {
+  Future<void> _pickMoveDate(OrderModel sourceOrder) async {
+    final itemId = backendItemId;
+    if (itemId.isEmpty) return;
+
     final days = controller.scheduleDays;
     if (days.isEmpty) return;
     final first = days.first.date;
@@ -65,9 +71,9 @@ class MealItemCard extends GetView<ScheduleController> {
 
     final picked = await showDatePicker(
       context: Get.context!,
-      initialDate: order.date.isBefore(first)
+      initialDate: sourceOrder.date.isBefore(first)
           ? first
-          : (order.date.isAfter(last) ? last : order.date),
+          : (sourceOrder.date.isAfter(last) ? last : sourceOrder.date),
       firstDate: first,
       lastDate: last,
       selectableDayPredicate: (d) => days.any(
@@ -78,13 +84,79 @@ class MealItemCard extends GetView<ScheduleController> {
       ),
       helpText: 'Move to a scheduled day',
     );
-    if (picked != null) {
-      final itemId = order.getItemBackendId(itemIndex);
-      if (itemId != null && itemId.isNotEmpty) {
+    if (picked == null) return;
+
+    final normalized = DateTime(picked.year, picked.month, picked.day);
+    final context = Get.context!;
+
+    // Show a loading dialog while fetching candidate orders for the target date
+    Get.dialog<void>(
+      const Center(
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+    final candidates = await controller.fetchOrdersForDate(normalized);
+    if (Get.isDialogOpen ?? false) Get.back<void>();
+
+    if (candidates.isEmpty) {
+      Get.snackbar(
+        'No delivery on this day',
+        'Choose a scheduled day that already has a delivery — the meal will be added to it.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    // Filter out the source order itself in case user picks the same date
+    final filtered = candidates.where((o) => o.id != sourceOrder.id).toList();
+    if (filtered.isEmpty) {
+      Get.snackbar(
+        'Choose a different day',
+        'This is the only delivery on this date — pick another scheduled day.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF323232),
+        colorText: Colors.white,
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    if (filtered.length == 1) {
+      // Only one existing order on the target date — move directly
+      await controller.moveItem(
+        orderId: sourceOrder.id,
+        itemId: itemId,
+        targetOrderId: filtered.first.id,
+      );
+    } else {
+      // 2+ orders on the target date — let user pick which delivery
+      if (!context.mounted) return;
+      final chosen = await showModalBottomSheet<_TargetOrderPick>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _TargetOrderPickerSheet(
+          targetDate: normalized,
+          candidates: filtered,
+        ),
+      );
+      if (chosen != null) {
         await controller.moveItem(
-          order.id,
-          itemId,
-          DateTime(picked.year, picked.month, picked.day),
+          orderId: sourceOrder.id,
+          itemId: itemId,
+          targetOrderId: chosen.orderId,
         );
       }
     }
@@ -124,12 +196,15 @@ class MealItemCard extends GetView<ScheduleController> {
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => Container(
                           color: Colors.grey.shade100,
-                          child: const Icon(Icons.restaurant, color: Colors.black54),
+                          child: const Icon(
+                            Icons.restaurant,
+                            color: Colors.black54,
+                          ),
                         ),
-                        loadingBuilder:
-                            (context, child, progress) =>
-                                progress == null ? child : Container(
-                                    color: Colors.grey.shade100),
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                            ? child
+                            : Container(color: Colors.grey.shade100),
                       ),
                     ),
                   ),
@@ -146,12 +221,13 @@ class MealItemCard extends GetView<ScheduleController> {
                             color: skipped
                                 ? Colors.grey.shade400
                                 : meal.isSwapped
-                                    ? const Color(0xFF27A768)
-                                    : meal.isMoved
-                                        ? Colors.blue.shade600
-                                        : Colors.black,
-                            decoration:
-                                skipped ? TextDecoration.lineThrough : null,
+                                ? const Color(0xFF27A768)
+                                : meal.isMoved
+                                ? Colors.blue.shade600
+                                : Colors.black,
+                            decoration: skipped
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -176,7 +252,9 @@ class MealItemCard extends GetView<ScheduleController> {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF27A768).withValues(alpha: 0.15),
+                              color: const Color(
+                                0xFF27A768,
+                              ).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -258,17 +336,142 @@ class MealItemCard extends GetView<ScheduleController> {
   }
 }
 
-/// Bottom sheet for swapping a specific item's meal.
-class _SwapItemSheet extends GetView<ScheduleController> {
-  final OrderModel order;
-  final int itemIndex;
+/// Return value from the target-order picker bottom sheet.
+class _TargetOrderPick {
+  final String orderId;
+  _TargetOrderPick(this.orderId);
+}
 
-  const _SwapItemSheet({required this.order, required this.itemIndex});
+/// Picker shown when the target date has 2+ deliveries.
+/// Lets the user choose which existing order the moved item should go into.
+class _TargetOrderPickerSheet extends StatelessWidget {
+  final DateTime targetDate;
+  final List<OrderModel> candidates;
+
+  const _TargetOrderPickerSheet({
+    required this.targetDate,
+    required this.candidates,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final item = order.getItemByIndex(itemIndex);
-    if (item == null) {
+    final dateHeader = DateFormat.MMMMEEEEd().format(targetDate);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Flexible(
+                  child: Text(
+                    'Choose a delivery',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Get.back<_TargetOrderPick>(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$dateHeader has ${candidates.length} deliveries — '
+              'add this meal to which one?',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 14),
+            ...candidates.asMap().entries.map((entry) {
+              final i = entry.key;
+              final order = entry.value;
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: i == candidates.length - 1 ? 0 : 10,
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => Get.back<_TargetOrderPick>(
+                    result: _TargetOrderPick(order.id),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.schedule_outlined,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Delivery ${i + 1} · ${order.deliverySlotStart}'
+                                ' – ${order.deliverySlotEnd}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${order.items.length} meal${order.items.length == 1 ? '' : 's'} · ${order.totalCalories} cal',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.black54),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for swapping a specific item's meal.
+class _SwapItemSheet extends GetView<ScheduleController> {
+  final OrderModel order;
+  final MealModel currentMeal;
+  final String itemId;
+
+  const _SwapItemSheet({
+    required this.order,
+    required this.currentMeal,
+    required this.itemId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (itemId.isEmpty) {
       return const Center(child: Text('Item not found'));
     }
 
@@ -298,7 +501,7 @@ class _SwapItemSheet extends GetView<ScheduleController> {
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
-            if (item.name.isNotEmpty) ...[
+            if (currentMeal.name.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -316,7 +519,7 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Current: ${item.name}',
+                        'Current: ${currentMeal.name}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.black54,
@@ -347,24 +550,21 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final newMeal = controller.meals[index];
-                    final isCurrentMeal = newMeal.name == item.name;
+                    final isCurrentMeal = newMeal.name == currentMeal.name;
                     return InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: isCurrentMeal
                           ? null
                           : () {
                               Get.back<void>();
-                              final itemId =
-                                  order.getItemBackendId(itemIndex);
-                              if (itemId != null && itemId.isNotEmpty) {
-                                controller.swapItem(order.id, itemId, newMeal);
-                              }
+                              controller.swapItem(order.id, itemId, newMeal);
                             },
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color:
-                              isCurrentMeal ? Colors.grey.shade50 : Colors.white,
+                          color: isCurrentMeal
+                              ? Colors.grey.shade50
+                              : Colors.white,
                           border: Border.all(
                             color: isCurrentMeal
                                 ? Colors.grey.shade300
@@ -384,8 +584,10 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(
                                     color: Colors.grey.shade100,
-                                    child:
-                                        const Icon(Icons.restaurant, color: Colors.black54),
+                                    child: const Icon(
+                                      Icons.restaurant,
+                                      color: Colors.black54,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -417,7 +619,9 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.grey.shade200,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: const Text(
                                             'Current',
@@ -442,7 +646,10 @@ class _SwapItemSheet extends GetView<ScheduleController> {
                               ),
                             ),
                             if (!isCurrentMeal)
-                              const Icon(Icons.swap_horiz, color: Colors.black54),
+                              const Icon(
+                                Icons.swap_horiz,
+                                color: Colors.black54,
+                              ),
                           ],
                         ),
                       ),
